@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maç Analizi</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #2d1b4d 0%, #1a1a2e 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .teams {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #b19cd9;
+        }
+
+        .team {
+            flex: 1;
+            text-align: center;
+            padding: 20px;
+            background: rgba(138, 109, 204, 0.1);
+            border-radius: 10px;
+            margin: 0 10px;
+        }
+
+        .score-tables {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .score-table {
+            flex: 1;
+            background: rgba(138, 109, 204, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .table-title {
+            text-align: center;
+            font-size: 18px;
+            color: #b19cd9;
+            margin-bottom: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid rgba(177, 156, 217, 0.3);
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background: rgba(138, 109, 204, 0.2);
+            color: #b19cd9;
+        }
+
+        td {
+            color: #fff;
+        }
+
+        .period-row {
+            background: rgba(138, 109, 204, 0.15);
+        }
+
+        .period-label {
+            font-weight: bold;
+            color: #b19cd9;
+        }
+
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            background: rgba(138, 109, 204, 0.1);
+            border-radius: 10px;
+            color: #b19cd9;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="teams">
+            <div class="team" id="homeTeam">Ev Sahibi</div>
+            <div class="team" id="awayTeam">Deplasman</div>
+        </div>
+
+        <div class="status" id="matchStatus">Maç Durumu: -</div>
+
+        <div class="score-tables">
+            <div class="score-table">
+                <div class="table-title" id="homeTeamTitle">Ev Sahibi Sayıları</div>
+                <table id="homeTeamTable">
+                    <thead>
+                        <tr>
+                            <th>Dakika</th>
+                            <th>1</th>
+                            <th>2</th>
+                            <th>3</th>
+                            <th>4</th>
+                            <th>5</th>
+                            <th>6</th>
+                            <th>7</th>
+                            <th>8</th>
+                            <th>9</th>
+                            <th>10</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Periyot satırları JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="score-table">
+                <div class="table-title" id="awayTeamTitle">Deplasman Sayıları</div>
+                <table id="awayTeamTable">
+                    <thead>
+                        <tr>
+                            <th>Dakika</th>
+                            <th>1</th>
+                            <th>2</th>
+                            <th>3</th>
+                            <th>4</th>
+                            <th>5</th>
+                            <th>6</th>
+                            <th>7</th>
+                            <th>8</th>
+                            <th>9</th>
+                            <th>10</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Periyot satırları JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 40 ile çarpılmış sayılar için yeni tablolar -->
+        <div class="score-tables" style="margin-top: 30px;">
+            <div class="score-table">
+                <div class="table-title" id="homeTeamTitle40">Ev Sahibi Sayıları (x40)</div>
+                <table id="homeTeamTable40">
+                    <thead>
+                        <tr>
+                            <th>Dakika</th>
+                            <th>1</th>
+                            <th>2</th>
+                            <th>3</th>
+                            <th>4</th>
+                            <th>5</th>
+                            <th>6</th>
+                            <th>7</th>
+                            <th>8</th>
+                            <th>9</th>
+                            <th>10</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Periyot satırları JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="score-table">
+                <div class="table-title" id="awayTeamTitle40">Deplasman Sayıları (x40)</div>
+                <table id="awayTeamTable40">
+                    <thead>
+                        <tr>
+                            <th>Dakika</th>
+                            <th>1</th>
+                            <th>2</th>
+                            <th>3</th>
+                            <th>4</th>
+                            <th>5</th>
+                            <th>6</th>
+                            <th>7</th>
+                            <th>8</th>
+                            <th>9</th>
+                            <th>10</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Periyot satırları JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Toplam sayılar için tek tablo (ortada) -->
+        <div style="display: flex; justify-content: center; margin-top: 30px;">
+            <div class="score-table" style="max-width: 600px;">
+                <div class="table-title" id="totalTitle">Toplam Sayılar (x40)</div>
+                <table id="totalTable">
+                    <thead>
+                        <tr>
+                            <th>Dakika</th>
+                            <th>1</th>
+                            <th>2</th>
+                            <th>3</th>
+                            <th>4</th>
+                            <th>5</th>
+                            <th>6</th>
+                            <th>7</th>
+                            <th>8</th>
+                            <th>9</th>
+                            <th>10</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Periyot satırları JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>

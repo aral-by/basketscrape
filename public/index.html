@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Basketbol Takip</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #2d1b4d 0%, #1a1a2e 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+
+    .card {
+      background: rgba(138, 109, 204, 0.12);
+      border: 1px solid rgba(177, 156, 217, 0.25);
+      border-radius: 16px;
+      padding: 48px 40px;
+      width: 480px;
+      max-width: 95vw;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      color: #b19cd9;
+      letter-spacing: 1px;
+      margin-bottom: 32px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(177, 156, 217, 0.35);
+      background: rgba(0,0,0,0.3);
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+      margin-bottom: 14px;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #b19cd9;
+    }
+
+    input[type="text"]::placeholder {
+      color: #666;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      background: #8a6dcc;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover:not(:disabled) { background: #a084e8; }
+    button:disabled { background: #444; color: #888; cursor: not-allowed; }
+
+    .status-box {
+      margin-top: 22px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .status-box.finished {
+      background: rgba(192, 57, 43, 0.2);
+      border: 1px solid #c0392b;
+      color: #e74c3c;
+      display: block;
+    }
+
+    .status-box.not_started {
+      background: rgba(243, 156, 18, 0.15);
+      border: 1px solid #f39c12;
+      color: #f0c040;
+      display: block;
+    }
+
+    .status-box.running {
+      background: rgba(39, 174, 96, 0.15);
+      border: 1px solid #27ae60;
+      color: #2ecc71;
+      display: block;
+    }
+
+    .status-box.error {
+      background: rgba(192, 57, 43, 0.2);
+      border: 1px solid #c0392b;
+      color: #e74c3c;
+      display: block;
+    }
+
+    .analysis-link {
+      display: inline-block;
+      margin-top: 14px;
+      color: #b19cd9;
+      text-decoration: none;
+      font-size: 0.9rem;
+      border-bottom: 1px solid rgba(177,156,217,0.4);
+      padding-bottom: 2px;
+      display: none;
+    }
+
+    .analysis-link:hover { color: #d0b8ff; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Basketbol Canlı Skor</h1>
+
+    <input type="text" id="urlInput" placeholder="Flashscore maç URL'sini gir..." />
+    <button id="startBtn">Başlat</button>
+
+    <div class="status-box" id="statusBox"></div>
+    <a href="/analysis.html" id="analysisLink" class="analysis-link">→ Analiz sayfasına git</a>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
