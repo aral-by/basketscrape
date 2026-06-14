@@ -181,7 +181,15 @@ async function parseMatchData(page, log) {
   const awayText   = await getElementText(page, SELECTORS.awayScore);
 
   const period    = parseQuarter(periodText);
-  const minute    = minuteText ? (parseInt(minuteText) || null) : null;
+
+  // Flashscore bazen period + dakikayı tek string'de birleştirir: "2. Çeyrek6'"
+  // Önce ayrı minute selector'ı dene; bulamazsan period text'inden çek.
+  let minute = minuteText ? (parseInt(minuteText) || null) : null;
+  if (minute === null && periodText) {
+    const m = periodText.match(/(\d+)['']?\s*$/);
+    if (m) minute = parseInt(m[1]);
+  }
+
   const homeScore = homeText   ? (parseInt(homeText.replace(/\D/g, '')) || 0) : null;
   const awayScore = awayText   ? (parseInt(awayText.replace(/\D/g, '')) || 0) : null;
   const finished  = isMatchFinished(periodText);
