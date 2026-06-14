@@ -28,19 +28,31 @@ class ScoreBoard {
 
     const cellIndex = absoluteMinute - 1;
 
-    if (absoluteMinute === this.lastAbsoluteMinute || this.lastAbsoluteMinute === 0) {
-      // Aynı dakika: snapshot üzerine yaz
+    if (this.lastAbsoluteMinute === 0) {
+      // İLK GÜNCELLEME — scraper maç ortasından başlamış olabilir.
+      // Mevcut skoru baseline olarak kaydet; bu dakikanın hücresi 0 kalır
+      // (geriye dönük bilgi yok, o dakikada tam kaç sayı atıldığı bilinmez).
+      this.prevHomeCumulative = homeScore;
+      this.prevAwayCumulative = awayScore;
+      this.lastHomeSeen       = homeScore;
+      this.lastAwaySeen       = awayScore;
+      this.lastAbsoluteMinute = absoluteMinute;
+      return true;
+    }
+
+    if (absoluteMinute === this.lastAbsoluteMinute) {
+      // Aynı dakika içinde yeni snapshot: üzerine yaz
       // prevXCumulative = bu dakikanın başındaki kümülatif → değişmez
       this.homeMinutes[cellIndex] = homeScore - this.prevHomeCumulative;
       this.awayMinutes[cellIndex] = awayScore - this.prevAwayCumulative;
     } else {
-      // Dakika geçişi: atlanan dakikaları doldur
+      // Dakika geçişi: atlanan dakikaları sıfırla
       for (let m = this.lastAbsoluteMinute + 1; m < absoluteMinute; m++) {
         this.homeMinutes[m - 1] = 0;
         this.awayMinutes[m - 1] = 0;
       }
 
-      // Yeni dakikayı hesapla: lastXSeen = bir önceki dakikanın sonu (doğru baseline)
+      // Yeni dakikayı hesapla: lastXSeen = bir önceki dakikanın sonu
       this.homeMinutes[cellIndex] = homeScore - this.lastHomeSeen;
       this.awayMinutes[cellIndex] = awayScore - this.lastAwaySeen;
 
@@ -49,9 +61,8 @@ class ScoreBoard {
       this.prevAwayCumulative = this.lastAwaySeen;
     }
 
-    // Her zaman en son görülen ham kümülatifi kaydet
-    this.lastHomeSeen = homeScore;
-    this.lastAwaySeen = awayScore;
+    this.lastHomeSeen       = homeScore;
+    this.lastAwaySeen       = awayScore;
     this.lastAbsoluteMinute = absoluteMinute;
     return true;
   }
