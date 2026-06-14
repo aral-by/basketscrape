@@ -3,615 +3,729 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Maç Analizi</title>
+  <title>BasketScrape — Analiz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #09090b;
+      --surface:     #0f0f12;
+      --card:        #18181b;
+      --card-hover:  #1c1c21;
+      --border:      #27272a;
+      --border-md:   #3f3f46;
+
+      --text:        #fafafa;
+      --muted:       #a1a1aa;
+      --dim:         #71717a;
+
+      --home:        #818cf8;
+      --home-bg:     rgba(129,140,248,0.08);
+      --home-bdr:    rgba(129,140,248,0.22);
+
+      --away:        #fb7185;
+      --away-bg:     rgba(251,113,133,0.08);
+      --away-bdr:    rgba(251,113,133,0.22);
+
+      --total:       #34d399;
+      --total-bg:    rgba(52,211,153,0.07);
+      --total-bdr:   rgba(52,211,153,0.22);
+
+      --live:        #22c55e;
+      --live-bg:     rgba(34,197,94,0.10);
+
+      --danger:      #f87171;
+      --danger-bg:   rgba(248,113,113,0.10);
+
+      --r:           6px;
+      --r-lg:        10px;
+      --r-xl:        14px;
+    }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #2d1b4d 0%, #1a1a2e 100%);
-      color: #fff;
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
-      padding: 24px 16px;
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
-    .container {
-      max-width: 1300px;
-      margin: 0 auto;
-    }
-
-    /* Takım başlıkları */
-    .teams {
+    /* ── Topbar ─────────────────────────────────────── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 52px;
+      background: rgba(9,9,11,0.90);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
       display: flex;
-      justify-content: center;
       align-items: center;
-      gap: 24px;
-      margin-bottom: 18px;
+      gap: 14px;
+      padding: 0 18px;
+      z-index: 100;
     }
 
-    .team-name {
-      flex: 1;
-      text-align: center;
-      font-size: 1.3rem;
-      font-weight: 700;
-      color: #b19cd9;
-      padding: 14px 20px;
-      background: rgba(138, 109, 204, 0.15);
-      border-radius: 10px;
-    }
-
-    .score-display {
-      font-size: 1.6rem;
-      font-weight: 800;
-      color: #fff;
-      text-align: center;
-      padding: 14px 24px;
-      background: rgba(138, 109, 204, 0.25);
-      border-radius: 10px;
-      min-width: 120px;
-      white-space: nowrap;
-    }
-
-    /* Durum satırı */
-    .match-status {
-      text-align: center;
-      margin-bottom: 24px;
-      font-size: 0.9rem;
-      color: #b19cd9;
-      padding: 8px;
-      background: rgba(138, 109, 204, 0.1);
-      border-radius: 8px;
-    }
-
-    .match-status.finished {
-      color: #e74c3c;
-      background: rgba(192, 57, 43, 0.15);
-    }
-
-    /* İki tablo yan yana */
-    .score-tables {
+    .topbar-logo {
       display: flex;
-      gap: 20px;
-    }
-
-    .score-table-wrap {
-      flex: 1;
-      background: rgba(138, 109, 204, 0.1);
-      border-radius: 12px;
-      padding: 18px;
-      min-width: 0;
-    }
-
-    .table-title {
-      text-align: center;
-      font-size: 1rem;
-      font-weight: 700;
-      color: #b19cd9;
-      margin-bottom: 12px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th, td {
-      border: 1px solid rgba(177, 156, 217, 0.25);
-      padding: 7px 5px;
-      text-align: center;
-      font-size: 0.83rem;
-    }
-
-    th {
-      background: rgba(138, 109, 204, 0.25);
-      color: #b19cd9;
-      font-weight: 600;
-    }
-
-    td {
-      color: #e0e0e0;
-      background: rgba(0,0,0,0.15);
-    }
-
-    td.period-label {
-      font-weight: 700;
-      color: #b19cd9;
-      background: rgba(138, 109, 204, 0.18);
-      text-align: left;
-      padding-left: 10px;
-      white-space: nowrap;
-    }
-
-    td.has-score {
-      color: #fff;
-      font-weight: 700;
-      background: rgba(138, 109, 204, 0.3);
-    }
-
-    td.active-cell {
-      color: #fff;
-      font-weight: 700;
-      background: rgba(138, 109, 204, 0.5);
-      box-shadow: inset 0 0 0 2px #b19cd9;
-    }
-
-    td.empty-cell {
-      color: #444;
-      background: rgba(0,0,0,0.25);
-    }
-
-    a.back-link {
-      display: inline-block;
-      margin-bottom: 20px;
-      color: #8a6dcc;
+      align-items: center;
+      gap: 8px;
       text-decoration: none;
-      font-size: 0.88rem;
+      color: var(--text);
+      flex-shrink: 0;
     }
-
-    a.back-link:hover { color: #b19cd9; }
-
-    .total-table-wrap {
-      background: rgba(192, 57, 43, 0.12);
-      border: 1px solid rgba(192, 57, 43, 0.35);
+    .topbar-logo-icon {
+      width: 26px; height: 26px;
+      background: var(--home);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
     }
-
-    .total-title {
-      color: #e74c3c;
-    }
-
-    .total-th {
-      background: rgba(192, 57, 43, 0.25);
-      color: #e74c3c;
-    }
-
-    td.total-cell {
-      color: #e0e0e0;
-      background: rgba(0,0,0,0.15);
-    }
-
-    td.total-cell.has-score {
-      color: #fff;
+    .topbar-logo-text {
+      font-size: 14px;
       font-weight: 700;
-      background: rgba(192, 57, 43, 0.35);
+      letter-spacing: -0.3px;
     }
 
-    td.total-cell.active-cell {
-      color: #fff;
-      font-weight: 700;
-      background: rgba(192, 57, 43, 0.55);
-      box-shadow: inset 0 0 0 2px #e74c3c;
-    }
-
-    /* İstatistikler */
-    .stats-wrap {
-      margin-top: 28px;
-      background: rgba(138, 109, 204, 0.08);
-      border-radius: 12px;
-      padding: 20px 24px;
-    }
-
-    .stats-header {
-      text-align: center;
-      font-size: 1rem;
-      font-weight: 700;
-      color: #b19cd9;
-      margin-bottom: 18px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-    }
-
-    .stats-sections {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-
-    .stats-section {
-      flex: 1;
-      min-width: 260px;
-    }
-
-    .stats-section-title {
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: #8a6dcc;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-      padding-bottom: 4px;
-      border-bottom: 1px solid rgba(138, 109, 204, 0.3);
-    }
-
-    .stats-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .stats-table td {
-      padding: 5px 6px;
-      font-size: 0.82rem;
-      border: none;
-      background: transparent;
-      color: #ddd;
-    }
-
-    .stats-table td.s-home {
-      text-align: right;
-      font-weight: 700;
-      color: #8a6dcc;
-      width: 28%;
-    }
-
-    .stats-table td.s-name {
-      text-align: center;
-      color: #aaa;
-      width: 44%;
-      font-size: 0.78rem;
-    }
-
-    .stats-table td.s-away {
-      text-align: left;
-      font-weight: 700;
-      color: #e05c5c;
-      width: 28%;
-    }
-
-    .stats-table tr:hover td { background: rgba(138, 109, 204, 0.08); }
-
-    .chart-wrap {
-      margin-top: 28px;
-      background: rgba(138, 109, 204, 0.1);
-      border-radius: 12px;
-      padding: 20px 24px;
-    }
-
-    .chart-title {
-      text-align: center;
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #b19cd9;
-      margin-bottom: 14px;
-    }
-
-    /* ── Hamburger & Side Panel ─────────────────────────── */
-    .menu-btn {
-      position: fixed;
-      top: 14px;
-      right: 14px;
-      z-index: 1000;
-      background: rgba(138, 109, 204, 0.75);
-      border: 1px solid rgba(138, 109, 204, 0.5);
-      color: #fff;
-      font-size: 1.25rem;
-      width: 42px;
-      height: 42px;
-      border-radius: 9px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(6px);
-      transition: background 0.2s;
-    }
-    .menu-btn:hover { background: rgba(138, 109, 204, 0.95); }
-
-    .side-panel {
-      position: fixed;
-      inset: 0;
-      z-index: 2000;
-      background: rgba(14, 8, 30, 0.97);
-      display: none;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .side-panel.open { display: flex; }
-
-    .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 13px 24px;
-      border-bottom: 1px solid rgba(138, 109, 204, 0.25);
-      background: rgba(14, 8, 30, 0.99);
+    .topbar-sep {
+      width: 1px; height: 20px;
+      background: var(--border);
       flex-shrink: 0;
     }
 
-    .panel-title {
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: #b19cd9;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-    }
-
-    .close-btn {
-      background: rgba(138, 109, 204, 0.2);
-      border: 1px solid rgba(138, 109, 204, 0.4);
-      color: #b19cd9;
-      font-size: 1rem;
-      width: 34px;
-      height: 34px;
-      border-radius: 7px;
-      cursor: pointer;
+    .topbar-match {
+      flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.2s;
+      gap: 12px;
     }
-    .close-btn:hover { background: rgba(138, 109, 204, 0.45); }
+
+    .topbar-team {
+      font-size: 13px;
+      font-weight: 600;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .topbar-team.is-home { color: var(--home); }
+    .topbar-team.is-away { color: var(--away); }
+
+    .topbar-score {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: 2px;
+      min-width: 80px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Status badge — JS sets .match-status and optionally .finished */
+    .match-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 10px;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .match-status::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--dim);
+      flex-shrink: 0;
+    }
+    .match-status.finished {
+      color: var(--danger);
+      background: var(--danger-bg);
+      border-color: rgba(248,113,113,0.3);
+    }
+    .match-status.finished::before { background: var(--danger); }
+
+    .analytics-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 13px;
+      background: var(--card);
+      border: 1px solid var(--border-md);
+      border-radius: var(--r);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .analytics-btn:hover {
+      background: var(--card-hover);
+      border-color: var(--home);
+      color: var(--home);
+    }
+
+    /* ── Layout ─────────────────────────────────────── */
+    .dashboard {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 68px 18px 48px;
+    }
+
+    .section {
+      margin-bottom: 24px;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--dim);
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Table Cards ────────────────────────────────── */
+    .tables-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .tables-row.three-col {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .table-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      overflow: hidden;
+    }
+    .table-card.home  { border-color: var(--home-bdr); }
+    .table-card.away  { border-color: var(--away-bdr); }
+    .table-card.total { border-color: var(--total-bdr); }
+
+    .table-card-header {
+      padding: 9px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .home  .table-card-header { color: var(--home);  background: var(--home-bg);  border-bottom-color: var(--home-bdr); }
+    .away  .table-card-header { color: var(--away);  background: var(--away-bg);  border-bottom-color: var(--away-bdr); }
+    .total .table-card-header { color: var(--total); background: var(--total-bg); border-bottom-color: var(--total-bdr); }
+
+    .table-scroll { overflow-x: auto; padding: 8px 6px; }
+
+    /* ── Score Table ────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; }
+
+    th {
+      padding: 5px 3px;
+      text-align: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--dim);
+      border-bottom: 1px solid var(--border);
+      letter-spacing: 0.3px;
+    }
+
+    td {
+      padding: 5px 3px;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+
+    td.period-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--dim);
+      text-align: left;
+      padding-left: 8px;
+      white-space: nowrap;
+      background: rgba(255,255,255,0.02);
+      border-right: 1px solid var(--border);
+    }
+
+    td.has-score {
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .home  td.has-score { color: var(--home); }
+    .away  td.has-score { color: var(--away); }
+    .total td.has-score { color: var(--total); }
+
+    td.active-cell {
+      font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .home  td.active-cell { background: var(--home-bg);  border-color: var(--home);  color: var(--home)  !important; }
+    .away  td.active-cell { background: var(--away-bg);  border-color: var(--away);  color: var(--away)  !important; }
+    .total td.active-cell { background: var(--total-bg); border-color: var(--total); color: var(--total) !important; }
+
+    td.empty-cell { color: rgba(255,255,255,0.06); }
+
+    td.total-cell               { color: rgba(255,255,255,0.2); }
+    td.total-cell.has-score     { color: var(--total); font-weight: 600; }
+    td.total-cell.active-cell   { background: var(--total-bg); border-color: var(--total); color: var(--total) !important; }
+
+    /* ── Chart Cards ────────────────────────────────── */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: 16px 16px 12px;
+    }
+    .chart-card.total-chart { border-color: var(--total-bdr); }
+
+    .chart-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--dim);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .total-chart .chart-label { color: var(--total); }
+
+    /* ── Side Panel ─────────────────────────────────── */
+    .side-panel {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: none;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
+    }
+    .side-panel.open { display: flex; justify-content: flex-end; }
+
+    .panel-inner {
+      width: min(580px, 96vw);
+      height: 100%;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      animation: slideIn 0.2s ease;
+    }
+
+    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+    .panel-header {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .panel-title { font-size: 13px; font-weight: 600; }
+
+    .close-btn {
+      width: 30px; height: 30px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--muted);
+      font-size: 13px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .close-btn:hover { background: var(--card-hover); color: var(--text); }
 
     .panel-body {
       flex: 1;
       overflow-y: auto;
-      padding: 22px 24px 36px;
+      padding: 20px;
       scrollbar-width: thin;
-      scrollbar-color: rgba(138, 109, 204, 0.4) transparent;
+      scrollbar-color: var(--border-md) transparent;
+    }
+
+    .panel-section { margin-bottom: 28px; }
+
+    .panel-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--dim);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
     }
 
     .charts-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 18px;
-      margin-bottom: 28px;
+      gap: 10px;
+      margin-bottom: 24px;
     }
-    @media (max-width: 700px) { .charts-grid { grid-template-columns: 1fr; } }
 
     .chart-panel {
-      background: rgba(138, 109, 204, 0.07);
-      border: 1px solid rgba(138, 109, 204, 0.15);
-      border-radius: 10px;
-      padding: 14px 16px 10px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 12px 12px 8px;
     }
 
     .chart-panel-title {
-      text-align: center;
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: #8a6dcc;
-      letter-spacing: 1px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--dim);
+      letter-spacing: 0.5px;
       text-transform: uppercase;
+      text-align: center;
       margin-bottom: 10px;
     }
 
+    /* Metric guide */
+    .metric-guide {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .guide-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .guide-icon { font-size: 15px; flex-shrink: 0; }
+    .guide-text { display: flex; flex-direction: column; gap: 2px; }
+    .guide-text strong { font-size: 11px; color: var(--text); font-weight: 600; }
+    .guide-text span   { font-size: 10px; color: var(--dim); line-height: 1.45; }
+
+    /* Stats table in panel */
     .stats-col-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 6px 2px 12px;
-      margin-bottom: 4px;
-      border-bottom: 1px solid rgba(138, 109, 204, 0.2);
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--border);
     }
-    .s-col-home { color: #8a6dcc; font-weight: 700; font-size: 0.9rem; }
-    .s-col-mid  { color: #666; font-size: 0.72rem; letter-spacing: 1px; text-transform: uppercase; }
-    .s-col-away { color: #e05c5c; font-weight: 700; font-size: 0.9rem; }
+    .s-col-home { color: var(--home); font-weight: 700; font-size: 13px; }
+    .s-col-mid  { color: var(--dim);  font-size: 10px;  letter-spacing: 0.5px; text-transform: uppercase; }
+    .s-col-away { color: var(--away); font-weight: 700; font-size: 13px; }
 
-    .no-stats { color: #555; text-align: center; font-style: italic; padding: 28px; }
+    .stats-sections { display: flex; flex-direction: column; gap: 14px; }
 
-    /* ── Metrik Açıklamaları ─────────────────────────────── */
-    .metric-guide {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 28px;
-    }
-    @media (max-width: 700px) { .metric-guide { grid-template-columns: 1fr; } }
-
-    .guide-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      background: rgba(138, 109, 204, 0.06);
-      border: 1px solid rgba(138, 109, 204, 0.12);
-      border-radius: 8px;
-      padding: 10px 12px;
+    .stats-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--dim);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 5px;
     }
 
-    .guide-icon {
-      font-size: 1.25rem;
-      flex-shrink: 0;
-      margin-top: 1px;
-    }
+    .stats-table { width: 100%; border-collapse: collapse; }
+    .stats-table td { padding: 4px 3px; font-size: 12px; border: none; background: transparent; color: var(--muted); }
+    .stats-table td.s-home { text-align: right; font-weight: 600; color: var(--home); width: 26%; }
+    .stats-table td.s-name { text-align: center; color: var(--dim); width: 48%; font-size: 11px; }
+    .stats-table td.s-away { text-align: left;  font-weight: 600; color: var(--away); width: 26%; }
+    .stats-table tr:hover td { background: rgba(255,255,255,0.02); border-radius: 4px; }
 
-    .guide-text {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
+    .no-stats { color: var(--dim); text-align: center; font-style: italic; padding: 24px; font-size: 12px; }
 
-    .guide-text strong {
-      font-size: 0.78rem;
-      color: #b19cd9;
-      font-weight: 700;
-    }
+    /* hidden — kept for JS compat */
+    .back-link { display: none; }
 
-    .guide-text span {
-      font-size: 0.74rem;
-      color: #888;
-      line-height: 1.45;
+    /* ── Responsive ─────────────────────────────────── */
+    @media (max-width: 960px) {
+      .tables-row { grid-template-columns: 1fr; }
+      .tables-row.three-col { grid-template-columns: 1fr; }
+      .charts-row { grid-template-columns: 1fr; }
+      .topbar-match { display: none; }
+    }
+    @media (max-width: 640px) {
+      .charts-grid { grid-template-columns: 1fr; }
+      .metric-guide { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <a href="/" class="back-link">← Geri</a>
-    <button id="menuBtn" class="menu-btn" title="İstatistikler &amp; Analiz">☰</button>
 
-    <div class="teams">
-      <div class="team-name" id="homeName">Ev Sahibi</div>
-      <div class="score-display" id="scoreDisplay">- : -</div>
-      <div class="team-name" id="awayName">Deplasman</div>
+  <!-- ── Topbar ──────────────────────────────────────── -->
+  <header class="topbar">
+    <a href="/" class="topbar-logo">
+      <div class="topbar-logo-icon">🏀</div>
+      <span class="topbar-logo-text">BasketScrape</span>
+    </a>
+
+    <div class="topbar-sep"></div>
+
+    <div class="topbar-match">
+      <span class="topbar-team is-home" id="homeName">Ev Sahibi</span>
+      <div class="topbar-score" id="scoreDisplay">–:–</div>
+      <span class="topbar-team is-away" id="awayName">Deplasman</span>
     </div>
 
-    <div class="match-status" id="matchStatus">Bağlanıyor...</div>
+    <div class="topbar-actions">
+      <span class="match-status" id="matchStatus">Bağlanıyor...</span>
+      <button id="menuBtn" class="analytics-btn">Analiz →</button>
+    </div>
+  </header>
 
-    <div class="score-tables">
-      <div class="score-table-wrap">
-        <div class="table-title" id="homeTitle">Ev Sahibi</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Periyot</th>
-              <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
-              <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
-            </tr>
-          </thead>
-          <tbody id="homeTbody"></tbody>
-        </table>
+  <!-- ── Dashboard ───────────────────────────────────── -->
+  <main class="dashboard">
+
+    <!-- Gerçek skorlar -->
+    <div class="section">
+      <div class="section-label">Dakika Bazlı Skor</div>
+      <div class="tables-row">
+
+        <div class="table-card home">
+          <div class="table-card-header" id="homeTitle">Ev Sahibi</div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Periyot</th>
+                  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                  <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+                </tr>
+              </thead>
+              <tbody id="homeTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="table-card away">
+          <div class="table-card-header" id="awayTitle">Deplasman</div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Periyot</th>
+                  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                  <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+                </tr>
+              </thead>
+              <tbody id="awayTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
-      <div class="score-table-wrap">
-        <div class="table-title" id="awayTitle">Deplasman</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Periyot</th>
-              <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
-              <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
-            </tr>
-          </thead>
-          <tbody id="awayTbody"></tbody>
-        </table>
+      <!-- ×40 Normalize -->
+      <div class="section-label" style="margin-top:18px;">Tempo Normalize (×40 dakika)</div>
+      <div class="tables-row three-col">
+
+        <div class="table-card home">
+          <div class="table-card-header" id="homeTitle40">Ev Sahibi (×40)</div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Periyot</th>
+                  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                  <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+                </tr>
+              </thead>
+              <tbody id="homeTbody40"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="table-card total">
+          <div class="table-card-header">Toplam (×40)</div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Periyot</th>
+                  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                  <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+                </tr>
+              </thead>
+              <tbody id="totalTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="table-card away">
+          <div class="table-card-header" id="awayTitle40">Deplasman (×40)</div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Periyot</th>
+                  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                  <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+                </tr>
+              </thead>
+              <tbody id="awayTbody40"></tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
 
-    <div class="score-tables" style="margin-top: 20px;">
-      <div class="score-table-wrap">
-        <div class="table-title" id="homeTitle40">Ev Sahibi (×40)</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Periyot</th>
-              <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
-              <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
-            </tr>
-          </thead>
-          <tbody id="homeTbody40"></tbody>
-        </table>
-      </div>
-
-      <div class="score-table-wrap total-table-wrap">
-        <div class="table-title total-title">Toplam (×40)</div>
-        <table>
-          <thead>
-            <tr>
-              <th class="total-th">Periyot</th>
-              <th class="total-th">1</th><th class="total-th">2</th><th class="total-th">3</th><th class="total-th">4</th><th class="total-th">5</th>
-              <th class="total-th">6</th><th class="total-th">7</th><th class="total-th">8</th><th class="total-th">9</th><th class="total-th">10</th>
-            </tr>
-          </thead>
-          <tbody id="totalTbody"></tbody>
-        </table>
-      </div>
-
-      <div class="score-table-wrap">
-        <div class="table-title" id="awayTitle40">Deplasman (×40)</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Periyot</th>
-              <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
-              <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
-            </tr>
-          </thead>
-          <tbody id="awayTbody40"></tbody>
-        </table>
+    <!-- Grafikler -->
+    <div class="section">
+      <div class="section-label">Performans Grafikleri</div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-label">Dakika Başına Atılan Sayı</div>
+          <canvas id="scoreChart" height="110"></canvas>
+        </div>
+        <div class="chart-card total-chart">
+          <div class="chart-label">Toplam (×40) — Dakika Başına</div>
+          <canvas id="totalChart" height="110"></canvas>
+        </div>
       </div>
     </div>
 
-    <div class="chart-wrap">
-      <div class="chart-title">Dakika Başına Atılan Sayı</div>
-      <canvas id="scoreChart" height="90"></canvas>
-    </div>
+  </main>
 
-    <div class="chart-wrap" style="margin-top: 16px; border: 1px solid rgba(46, 204, 113, 0.25);">
-      <div class="chart-title" style="color: #2ecc71;">Toplam (×40) — Dakika Başına</div>
-      <canvas id="totalChart" height="70"></canvas>
-    </div>
-
-  </div><!-- /container -->
-
-  <!-- Side Panel -->
+  <!-- ── Side Panel ───────────────────────────────────── -->
   <div id="sidePanel" class="side-panel">
-    <div class="panel-header">
-      <span class="panel-title">Maç Analizi &amp; İstatistikler</span>
-      <button id="closePanelBtn" class="close-btn" title="Kapat">✕</button>
-    </div>
-    <div class="panel-body">
-      <div class="charts-grid">
-        <div class="chart-panel">
-          <div class="chart-panel-title">Four Factors (Dean Oliver)</div>
-          <canvas id="radarChart"></canvas>
-        </div>
-        <div class="chart-panel">
-          <div class="chart-panel-title">Verimlilik Puanı (×100)</div>
-          <canvas id="rtgBarChart"></canvas>
-        </div>
-        <div class="chart-panel">
-          <div class="chart-panel-title">Şut Türü Dağılımı</div>
-          <canvas id="shotChart"></canvas>
-        </div>
-        <div class="chart-panel">
-          <div class="chart-panel-title">Possession Payı</div>
-          <canvas id="possChart"></canvas>
-        </div>
-      </div>
-      <!-- Açıklama kutuları -->
-      <div class="metric-guide">
-        <div class="guide-item">
-          <div class="guide-icon">🎯</div>
-          <div class="guide-text">
-            <strong>eFG% — Etkili Şut Yüzdesi</strong>
-            <span>3'lük isabetler daha değerli sayıldığında atış başarısı ne kadar? Yüksek olan takım şut seçimini daha iyi yapıyor.</span>
-          </div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-icon">🔄</div>
-          <div class="guide-text">
-            <strong>TOV% — Top Kaybı Oranı (Ters gösterim)</strong>
-            <span>Her atış fırsatının kaçta kaçını çürütüyorlar? Grafikteki değer yüksek = top kaybı az = iyi demek.</span>
-          </div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-icon">💪</div>
-          <div class="guide-text">
-            <strong>ORB% — Hücum Ribaundu</strong>
-            <span>Isabetsiz şutlardan kaçını geri kapıyorlar? Yüksekse rakibe fırsat vermiyor, ikinci şans üretiyor.</span>
-          </div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-icon">🆓</div>
-          <div class="guide-text">
-            <strong>FTR — Serbest Atış Oranı</strong>
-            <span>Her alan şutuna karşılık kaç serbest atış kazanıyorlar? Yüksekse hem kolay sayı hem rakim faulde tutuyor.</span>
-          </div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-icon">📊</div>
-          <div class="guide-text">
-            <strong>OffRtg / DefRtg — Hücum & Savunma Puanı</strong>
-            <span>100 sayı üretme fırsatında kaç sayı atıyorlar / yiyorlar? 110+ hücum ya da 100- savunma çok iyi seviyedir.</span>
-          </div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-icon">⚖️</div>
-          <div class="guide-text">
-            <strong>NetRtg — Net Puan</strong>
-            <span>Hücum puanı eksi savunma puanı. Pozitif = maçta baskın, negatif = geride kalıyor. En özet metrik.</span>
-          </div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-icon">🏀</div>
-          <div class="guide-text">
-            <strong>Possession (Hücum Sırası) Payı</strong>
-            <span>Maçın toplam hücum sırasından her takımın aldığı pay. Büyük dilim = topu daha fazla elinde tutmuş.</span>
-          </div>
-        </div>
+    <div class="panel-inner">
+
+      <div class="panel-header">
+        <span class="panel-title">Analiz &amp; İstatistikler</span>
+        <button id="closePanelBtn" class="close-btn" title="Kapat">✕</button>
       </div>
 
-      <div id="panelStats"><p class="no-stats">İstatistikler bekleniyor...</p></div>
+      <div class="panel-body">
+
+        <div class="charts-grid">
+          <div class="chart-panel">
+            <div class="chart-panel-title">Four Factors</div>
+            <canvas id="radarChart"></canvas>
+          </div>
+          <div class="chart-panel">
+            <div class="chart-panel-title">Verimlilik (×100)</div>
+            <canvas id="rtgBarChart"></canvas>
+          </div>
+          <div class="chart-panel">
+            <div class="chart-panel-title">Şut Dağılımı</div>
+            <canvas id="shotChart"></canvas>
+          </div>
+          <div class="chart-panel">
+            <div class="chart-panel-title">Possession Payı</div>
+            <canvas id="possChart"></canvas>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-section-label">Metrik Açıklamaları</div>
+          <div class="metric-guide">
+            <div class="guide-item">
+              <div class="guide-icon">🎯</div>
+              <div class="guide-text">
+                <strong>eFG%</strong>
+                <span>3'lükler daha değerli sayıldığında atış başarısı. Yüksek = iyi şut seçimi.</span>
+              </div>
+            </div>
+            <div class="guide-item">
+              <div class="guide-icon">🔄</div>
+              <div class="guide-text">
+                <strong>TOV% (Ters)</strong>
+                <span>Grafikte yüksek = top kaybı az = iyi.</span>
+              </div>
+            </div>
+            <div class="guide-item">
+              <div class="guide-icon">💪</div>
+              <div class="guide-text">
+                <strong>ORB%</strong>
+                <span>Isabetsiz şutlardan kaçını geri kapıyor?</span>
+              </div>
+            </div>
+            <div class="guide-item">
+              <div class="guide-icon">🆓</div>
+              <div class="guide-text">
+                <strong>FTR</strong>
+                <span>Her alan şutuna kaç serbest atış?</span>
+              </div>
+            </div>
+            <div class="guide-item">
+              <div class="guide-icon">📊</div>
+              <div class="guide-text">
+                <strong>OffRtg / DefRtg</strong>
+                <span>100 hücumda atılan / yenilen sayı.</span>
+              </div>
+            </div>
+            <div class="guide-item">
+              <div class="guide-icon">⚖️</div>
+              <div class="guide-text">
+                <strong>NetRtg</strong>
+                <span>Hücum eksi savunma. Pozitif = baskın.</span>
+              </div>
+            </div>
+            <div class="guide-item">
+              <div class="guide-icon">🏀</div>
+              <div class="guide-text">
+                <strong>Possession Payı</strong>
+                <span>Toplam hücum sırasından alınan pay.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-section-label">Maç İstatistikleri</div>
+          <div id="panelStats"><p class="no-stats">İstatistikler bekleniyor...</p></div>
+        </div>
+
+      </div>
     </div>
   </div>
 
+  <!-- JS (değiştirilmedi) -->
+  <a href="/" class="back-link" id="backLink">← Geri</a>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="analysis.js"></script>
