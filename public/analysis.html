@@ -968,8 +968,8 @@
     const overlay      = document.getElementById('sidebarOverlay');
     const hamburger    = document.getElementById('hamburgerBtn');
     const sbClose      = document.getElementById('sidebarClose');
-    const mobileScore  = document.getElementById('mobileScore');
-    const scoreDisplay = document.getElementById('scoreDisplay');
+    const mobileScore = document.getElementById('mobileScore');
+    const scoreEl     = document.getElementById('scoreDisplay'); // scoreDisplay analysis.js'de zaten tanımlı
 
     function openSidebar()  { sidebar.classList.add('open');    overlay.style.display = 'block'; }
     function closeSidebar() { sidebar.classList.remove('open'); overlay.style.display = 'none'; }
@@ -978,8 +978,8 @@
     sbClose.addEventListener('click', closeSidebar);
     overlay.addEventListener('click', closeSidebar);
 
-    new MutationObserver(() => { mobileScore.textContent = scoreDisplay.textContent; })
-      .observe(scoreDisplay, { childList: true, characterData: true, subtree: true });
+    new MutationObserver(() => { mobileScore.textContent = scoreEl.textContent; })
+      .observe(scoreEl, { childList: true, characterData: true, subtree: true });
 
     /* ── Page switching ─────────────────────────────── */
     const chartPages = new Set(['page-charts','page-four-factors','page-efficiency','page-shots','page-possession']);
