@@ -4,62 +4,82 @@ const ScoreBoard = require('./gameState');
 // CSS selectors tried left-to-right; first non-empty match wins.
 // When Flashscore updates their DOM, prepend the new selector to the relevant array
 // instead of replacing — this keeps backwards compatibility with older layouts.
+// XPath selectors are prefixed with '/' and handled separately in getElementText().
+// CSS selectors are tried first (more resilient); XPaths are fallbacks.
+//
+// Flashscore DOM değişim geçmişi:
+//   2024-öncesi : main/div[5]/...
+//   2025+       : main/div[4]/... (bir üst div kalktı)
+//   Devre arası : div[2]/div/span  (normal oyunda div[2]/span[1])
+const BASE = '/html/body/div[4]/div[1]/div/div/main/div[4]/div[1]/div[2]/div[1]';
+
 const SELECTORS = {
   homeName: [
-    // Flashscore 2024-2025 layout
     '.duelParticipant__home .participant__participantName',
     '[class*="duelParticipant__home"] [class*="participantName"]',
-    // Older / fallback
     '[class*="home"] [class*="participantName"]',
+    `${BASE}/div[2]/div[3]/div[2]/a`,   // XPath fallback (takım adı linki)
   ],
   awayName: [
     '.duelParticipant__away .participant__participantName',
     '[class*="duelParticipant__away"] [class*="participantName"]',
     '[class*="away"] [class*="participantName"]',
+    `${BASE}/div[4]/div[3]/div[1]/a`,   // XPath fallback
   ],
   homeScore: [
-    // Score spans: home - dash - away  →  :first-child = home
     '.detailScore__wrapper > span:first-child',
     '[class*="detailScore__wrapper"] > span:first-child',
     '[class*="homeScore"]',
+    `${BASE}/div[3]/div/div[1]/span[1]`,  // XPath fallback
   ],
   awayScore: [
-    // :last-child = away score span
     '.detailScore__wrapper > span:last-child',
     '[class*="detailScore__wrapper"] > span:last-child',
     '[class*="awayScore"]',
+    `${BASE}/div[3]/div/div[1]/span[3]`,  // XPath fallback
   ],
-  // Period text: "1. Çeyrek", "Q2", "2nd Quarter", "1. Uzatma" …
+  // Period text: "1. Çeyrek" / "Q2" / "Devre Arası" / "1. Uzatma" …
+  // Devre arası DOM: div[2]/div/span  — normal oyun DOM: div[2]/span[1]
+  // İkisi de kapsanıyor; CSS selector'lar her ikisini de yakalar.
   period: [
     '.smh__stage',
     '[class*="smh__stage"]',
     '[class*="matchStatusStage"]',
     '[class*="detailScore__status"] [class*="stage"]',
-    // Generic fallback: first span inside any "status" wrapper
     '[class*="status"] > span:first-child',
+    // Kullanıcı doğruladı: hem normal çeyrek hem devre arası aynı yapı → div/span[1]
+    `${BASE}/div[3]/div/div[2]/div/span[1]`,
   ],
-  // Minute within the current period: plain integer text
   minute: [
     '.smh__minute',
     '[class*="smh__minute"]',
     '[class*="minuteWrapper"] > span:first-child',
     '[class*="timer"] > span:first-child',
+    `${BASE}/div[3]/div/div[2]/div/span[2]`,   // XPath fallback (aynı div içinde span[2])
   ],
-  // Statistics tab button — used in fetchStats()
   statsTab: [
-    // data-testid is the most stable (already used in stats row parsing)
     '[data-testid="wcl-tab-statistics"]',
     'a[href*="statistics"] button',
     'a[href*="statistics"]',
     '.tabs a:nth-child(3)',
+    `/html/body/div[4]/div[1]/div/div/main/div[4]/div[1]/div[5]/div[1]/div/a[3]/button`,
   ],
 };
 
 // Returns text content of the first selector that finds a non-empty element.
+// Strings starting with '/' are treated as XPath; others as CSS selectors.
 async function getElementText(page, selectors) {
   for (const sel of selectors) {
     try {
-      const text = await page.$eval(sel, el => el.textContent.trim());
+      let text;
+      if (sel.startsWith('/')) {
+        text = await page.evaluate((xp) => {
+          const node = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+          return node ? node.textContent.trim() : null;
+        }, sel);
+      } else {
+        text = await page.$eval(sel, el => el.textContent.trim());
+      }
       if (text) return text;
     } catch {}
   }
@@ -67,11 +87,21 @@ async function getElementText(page, selectors) {
 }
 
 // Clicks the first selector that resolves to an element. Returns true on success.
+// Strings starting with '/' are treated as XPath; others as CSS selectors.
 async function clickElement(page, selectors) {
   for (const sel of selectors) {
     try {
-      await page.click(sel);
-      return true;
+      if (sel.startsWith('/')) {
+        const clicked = await page.evaluate((xp) => {
+          const node = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+          if (node) { node.click(); return true; }
+          return false;
+        }, sel);
+        if (clicked) return true;
+      } else {
+        await page.click(sel);
+        return true;
+      }
     } catch {}
   }
   return false;
