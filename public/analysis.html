@@ -36,10 +36,10 @@
 
       --live:        #22c55e;
       --live-bg:     rgba(34,197,94,0.10);
-
       --danger:      #f87171;
       --danger-bg:   rgba(248,113,113,0.10);
 
+      --sidebar-w:   256px;
       --r:           6px;
       --r-lg:        10px;
       --r-xl:        14px;
@@ -55,154 +55,334 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Topbar ─────────────────────────────────────── */
-    .topbar {
+    /* ─────────────────────────────────────────────────────
+       SIDEBAR
+    ───────────────────────────────────────────────────── */
+    .sidebar {
       position: fixed;
-      top: 0; left: 0; right: 0;
-      height: 52px;
-      background: rgba(9,9,11,0.90);
-      border-bottom: 1px solid var(--border);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      top: 0; left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
       display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 0 18px;
-      z-index: 100;
+      flex-direction: column;
+      z-index: 50;
+      transition: transform 0.22s ease;
     }
 
-    .topbar-logo {
+    /* mobile: hidden by default */
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay { display: block; }
+      .main { margin-left: 0 !important; }
+      .mobile-bar { display: flex !important; }
+    }
+
+    /* ── Sidebar Header ─────────────────────────────── */
+    .sidebar-header {
+      height: 52px;
       display: flex;
       align-items: center;
-      gap: 8px;
-      text-decoration: none;
-      color: var(--text);
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
-    .topbar-logo-icon {
-      width: 26px; height: 26px;
+
+    .sb-logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      text-decoration: none;
+      color: var(--text);
+    }
+    .sb-logo-icon {
+      width: 28px; height: 28px;
       background: var(--home);
       border-radius: 6px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 13px;
+      font-size: 14px;
+      flex-shrink: 0;
     }
-    .topbar-logo-text {
+    .sb-logo-text {
       font-size: 14px;
       font-weight: 700;
       letter-spacing: -0.3px;
     }
 
-    .topbar-sep {
-      width: 1px; height: 20px;
-      background: var(--border);
-      flex-shrink: 0;
-    }
-
-    .topbar-match {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-    }
-
-    .topbar-team {
+    .sb-close {
+      display: none;
+      width: 28px; height: 28px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--muted);
       font-size: 13px;
-      font-weight: 600;
-      max-width: 180px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      cursor: pointer;
+      align-items: center; justify-content: center;
+      font-family: inherit;
     }
-    .topbar-team.is-home { color: var(--home); }
-    .topbar-team.is-away { color: var(--away); }
+    @media (max-width: 768px) { .sb-close { display: flex; } }
 
-    .topbar-score {
-      font-size: 17px;
-      font-weight: 800;
-      color: var(--text);
-      letter-spacing: 2px;
-      min-width: 80px;
-      text-align: center;
-      font-variant-numeric: tabular-nums;
+    /* ── Sidebar Body ───────────────────────────────── */
+    .sidebar-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-md) transparent;
     }
 
-    .topbar-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
+    /* ── Match Card ─────────────────────────────────── */
+    .sb-match {
+      margin: 0 10px 6px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 14px 14px 12px;
     }
 
-    /* Status badge — JS sets .match-status and optionally .finished */
+    /* status badge — JS sets className 'match-status' ± 'finished' */
     .match-status {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--muted);
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 4px 10px;
-      max-width: 220px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--live);
+      margin-bottom: 12px;
     }
     .match-status::before {
       content: '';
       width: 6px; height: 6px;
       border-radius: 50%;
-      background: var(--dim);
+      background: var(--live);
+      animation: pulse 2s infinite;
       flex-shrink: 0;
     }
     .match-status.finished {
       color: var(--danger);
-      background: var(--danger-bg);
-      border-color: rgba(248,113,113,0.3);
     }
-    .match-status.finished::before { background: var(--danger); }
+    .match-status.finished::before {
+      background: var(--danger);
+      animation: none;
+    }
 
-    .analytics-btn {
-      display: inline-flex;
-      align-items: center;
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .sb-teams {
+      display: flex;
+      flex-direction: column;
       gap: 6px;
-      padding: 6px 13px;
-      background: var(--card);
-      border: 1px solid var(--border-md);
-      border-radius: var(--r);
-      color: var(--muted);
+    }
+
+    .sb-team-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-size: 12px;
-      font-weight: 500;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.15s;
+      font-weight: 600;
+    }
+    .sb-team-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .sb-team-row.is-home .sb-team-dot { background: var(--home); }
+    .sb-team-row.is-away .sb-team-dot { background: var(--away); }
+    .sb-team-row.is-home .sb-team-name { color: var(--home); }
+    .sb-team-row.is-away .sb-team-name { color: var(--away); }
+    .sb-team-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .analytics-btn:hover {
-      background: var(--card-hover);
-      border-color: var(--home);
+
+    .sb-score-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 0;
+    }
+    .sb-score {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Navigation ─────────────────────────────────── */
+    .sb-group {
+      padding: 10px 10px 2px;
+    }
+
+    .sb-group-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--dim);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 0 8px 6px;
+    }
+
+    .sb-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      border-radius: var(--r);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.12s;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+    }
+    .sb-item:hover {
+      background: var(--card);
+      color: var(--text);
+    }
+    .sb-item.active {
+      background: var(--card);
+      color: var(--text);
+    }
+    .sb-item.analytics-trigger {
+      color: var(--home);
+    }
+    .sb-item.analytics-trigger:hover {
+      background: var(--home-bg);
       color: var(--home);
     }
 
-    /* ── Layout ─────────────────────────────────────── */
-    .dashboard {
-      max-width: 1480px;
-      margin: 0 auto;
-      padding: 68px 18px 48px;
+    .sb-item-icon {
+      width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+    .sb-item:hover .sb-item-icon,
+    .sb-item.active .sb-item-icon { opacity: 1; }
+
+    .sb-item-badge {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--live);
+      background: var(--live-bg);
+      border-radius: 10px;
+      padding: 1px 7px;
+      border: 1px solid rgba(34,197,94,0.25);
     }
 
-    .section {
-      margin-bottom: 24px;
+    .sb-sep {
+      height: 1px;
+      background: var(--border);
+      margin: 8px 10px;
     }
+
+    /* ── Sidebar Footer ─────────────────────────────── */
+    .sidebar-footer {
+      padding: 10px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .sb-footer-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: var(--r);
+      background: var(--card);
+      border: 1px solid var(--border);
+    }
+    .sb-footer-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--live);
+      animation: pulse 2s infinite;
+      flex-shrink: 0;
+    }
+    .sb-footer-text {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .sb-footer-text strong { color: var(--text); font-weight: 600; }
+
+    /* ─────────────────────────────────────────────────────
+       MOBILE BAR
+    ───────────────────────────────────────────────────── */
+    .mobile-bar {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 48px;
+      background: rgba(9,9,11,0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      align-items: center;
+      gap: 12px;
+      padding: 0 14px;
+      z-index: 40;
+    }
+
+    .hamburger {
+      width: 32px; height: 32px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--muted);
+      font-size: 15px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-family: inherit;
+      flex-shrink: 0;
+    }
+    .mobile-score {
+      flex: 1;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    /* ── Sidebar Overlay (mobile backdrop) ──────────── */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 49;
+      backdrop-filter: blur(2px);
+    }
+
+    /* ─────────────────────────────────────────────────────
+       MAIN CONTENT
+    ───────────────────────────────────────────────────── */
+    .main {
+      margin-left: var(--sidebar-w);
+      padding: 24px 20px 48px;
+      min-height: 100vh;
+    }
+
+    /* ── Section ────────────────────────────────────── */
+    .section { margin-bottom: 28px; }
 
     .section-label {
       font-size: 10px;
       font-weight: 600;
       color: var(--dim);
-      letter-spacing: 1.2px;
+      letter-spacing: 1px;
       text-transform: uppercase;
       margin-bottom: 10px;
       display: flex;
@@ -210,10 +390,7 @@
       gap: 8px;
     }
     .section-label::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border);
+      content: ''; flex: 1; height: 1px; background: var(--border);
     }
 
     /* ── Table Cards ────────────────────────────────── */
@@ -223,9 +400,7 @@
       gap: 12px;
       margin-bottom: 12px;
     }
-    .tables-row.three-col {
-      grid-template-columns: 1fr 1fr 1fr;
-    }
+    .tables-row.three-col { grid-template-columns: 1fr 1fr 1fr; }
 
     .table-card {
       background: var(--card);
@@ -250,59 +425,39 @@
 
     .table-scroll { overflow-x: auto; padding: 8px 6px; }
 
-    /* ── Score Table ────────────────────────────────── */
+    /* ── Score Tables ───────────────────────────────── */
     table { width: 100%; border-collapse: collapse; }
 
     th {
-      padding: 5px 3px;
-      text-align: center;
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--dim);
-      border-bottom: 1px solid var(--border);
-      letter-spacing: 0.3px;
+      padding: 5px 3px; text-align: center;
+      font-size: 10px; font-weight: 600; color: var(--dim);
+      border-bottom: 1px solid var(--border); letter-spacing: 0.3px;
     }
-
     td {
-      padding: 5px 3px;
-      text-align: center;
-      font-size: 11px;
-      color: rgba(255,255,255,0.2);
+      padding: 5px 3px; text-align: center;
+      font-size: 11px; color: rgba(255,255,255,0.18);
       border: 1px solid rgba(255,255,255,0.03);
     }
-
     td.period-label {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--dim);
-      text-align: left;
-      padding-left: 8px;
-      white-space: nowrap;
-      background: rgba(255,255,255,0.02);
-      border-right: 1px solid var(--border);
+      font-size: 10px; font-weight: 600; color: var(--dim);
+      text-align: left; padding-left: 8px; white-space: nowrap;
+      background: rgba(255,255,255,0.02); border-right: 1px solid var(--border);
     }
-
-    td.has-score {
-      color: var(--muted);
-      font-weight: 600;
-    }
+    td.has-score { color: var(--muted); font-weight: 600; }
     .home  td.has-score { color: var(--home); }
     .away  td.has-score { color: var(--away); }
     .total td.has-score { color: var(--total); }
 
-    td.active-cell {
-      font-weight: 700;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-    .home  td.active-cell { background: var(--home-bg);  border-color: var(--home);  color: var(--home)  !important; }
-    .away  td.active-cell { background: var(--away-bg);  border-color: var(--away);  color: var(--away)  !important; }
-    .total td.active-cell { background: var(--total-bg); border-color: var(--total); color: var(--total) !important; }
+    td.active-cell { font-weight: 700; }
+    .home  td.active-cell { background: var(--home-bg);  border: 1px solid var(--home);  color: var(--home)  !important; }
+    .away  td.active-cell { background: var(--away-bg);  border: 1px solid var(--away);  color: var(--away)  !important; }
+    .total td.active-cell { background: var(--total-bg); border: 1px solid var(--total); color: var(--total) !important; }
 
     td.empty-cell { color: rgba(255,255,255,0.06); }
 
-    td.total-cell               { color: rgba(255,255,255,0.2); }
-    td.total-cell.has-score     { color: var(--total); font-weight: 600; }
-    td.total-cell.active-cell   { background: var(--total-bg); border-color: var(--total); color: var(--total) !important; }
+    td.total-cell { color: rgba(255,255,255,0.18); }
+    td.total-cell.has-score { color: var(--total); font-weight: 600; }
+    td.total-cell.active-cell { background: var(--total-bg); border: 1px solid var(--total); color: var(--total) !important; }
 
     /* ── Chart Cards ────────────────────────────────── */
     .charts-row {
@@ -310,7 +465,6 @@
       grid-template-columns: 1fr 1fr;
       gap: 12px;
     }
-
     .chart-card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -318,24 +472,20 @@
       padding: 16px 16px 12px;
     }
     .chart-card.total-chart { border-color: var(--total-bdr); }
-
     .chart-label {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--dim);
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      margin-bottom: 12px;
+      font-size: 10px; font-weight: 600;
+      color: var(--dim); letter-spacing: 0.8px;
+      text-transform: uppercase; margin-bottom: 12px;
     }
     .total-chart .chart-label { color: var(--total); }
 
-    /* ── Side Panel ─────────────────────────────────── */
+    /* ─────────────────────────────────────────────────────
+       ANALYTICS SIDE PANEL (right overlay)
+    ───────────────────────────────────────────────────── */
     .side-panel {
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      display: none;
-      background: rgba(0,0,0,0.65);
+      position: fixed; inset: 0;
+      z-index: 200; display: none;
+      background: rgba(0,0,0,0.6);
       backdrop-filter: blur(4px);
     }
     .side-panel.open { display: flex; justify-content: flex-end; }
@@ -345,139 +495,86 @@
       height: 100%;
       background: var(--surface);
       border-left: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
+      display: flex; flex-direction: column;
       animation: slideIn 0.2s ease;
     }
-
     @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
 
     .panel-header {
       height: 52px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 20px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
-
     .panel-title { font-size: 13px; font-weight: 600; }
 
     .close-btn {
       width: 30px; height: 30px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      color: var(--muted);
-      font-size: 13px;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      font-family: inherit;
-      transition: all 0.15s;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r); color: var(--muted); font-size: 13px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-family: inherit; transition: all 0.12s;
     }
     .close-btn:hover { background: var(--card-hover); color: var(--text); }
 
     .panel-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-      scrollbar-width: thin;
-      scrollbar-color: var(--border-md) transparent;
+      flex: 1; overflow-y: auto; padding: 20px;
+      scrollbar-width: thin; scrollbar-color: var(--border-md) transparent;
     }
 
     .panel-section { margin-bottom: 28px; }
-
     .panel-section-label {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--dim);
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border);
+      font-size: 10px; font-weight: 600; color: var(--dim);
+      letter-spacing: 1px; text-transform: uppercase;
+      padding-bottom: 8px; border-bottom: 1px solid var(--border);
       margin-bottom: 14px;
     }
 
-    .charts-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 24px;
-    }
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
 
     .chart-panel {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r-lg);
-      padding: 12px 12px 8px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 12px 12px 8px;
     }
-
     .chart-panel-title {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--dim);
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      text-align: center;
-      margin-bottom: 10px;
+      font-size: 10px; font-weight: 600; color: var(--dim);
+      letter-spacing: 0.5px; text-transform: uppercase;
+      text-align: center; margin-bottom: 10px;
     }
 
-    /* Metric guide */
-    .metric-guide {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
+    .metric-guide { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .guide-item {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 10px;
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 10px;
+      display: flex; align-items: flex-start; gap: 8px;
     }
     .guide-icon { font-size: 15px; flex-shrink: 0; }
     .guide-text { display: flex; flex-direction: column; gap: 2px; }
     .guide-text strong { font-size: 11px; color: var(--text); font-weight: 600; }
-    .guide-text span   { font-size: 10px; color: var(--dim); line-height: 1.45; }
+    .guide-text span { font-size: 10px; color: var(--dim); line-height: 1.45; }
 
-    /* Stats table in panel */
     .stats-col-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 10px;
-      margin-bottom: 10px;
-      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border);
     }
     .s-col-home { color: var(--home); font-weight: 700; font-size: 13px; }
-    .s-col-mid  { color: var(--dim);  font-size: 10px;  letter-spacing: 0.5px; text-transform: uppercase; }
+    .s-col-mid  { color: var(--dim);  font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; }
     .s-col-away { color: var(--away); font-weight: 700; font-size: 13px; }
 
     .stats-sections { display: flex; flex-direction: column; gap: 14px; }
-
     .stats-section-title {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--dim);
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      margin-bottom: 5px;
+      font-size: 10px; font-weight: 600; color: var(--dim);
+      letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 5px;
     }
-
     .stats-table { width: 100%; border-collapse: collapse; }
     .stats-table td { padding: 4px 3px; font-size: 12px; border: none; background: transparent; color: var(--muted); }
     .stats-table td.s-home { text-align: right; font-weight: 600; color: var(--home); width: 26%; }
     .stats-table td.s-name { text-align: center; color: var(--dim); width: 48%; font-size: 11px; }
     .stats-table td.s-away { text-align: left;  font-weight: 600; color: var(--away); width: 26%; }
-    .stats-table tr:hover td { background: rgba(255,255,255,0.02); border-radius: 4px; }
+    .stats-table tr:hover td { background: rgba(255,255,255,0.02); }
 
     .no-stats { color: var(--dim); text-align: center; font-style: italic; padding: 24px; font-size: 12px; }
 
-    /* hidden — kept for JS compat */
+    /* keep for JS compat */
     .back-link { display: none; }
 
     /* ── Responsive ─────────────────────────────────── */
@@ -485,42 +582,103 @@
       .tables-row { grid-template-columns: 1fr; }
       .tables-row.three-col { grid-template-columns: 1fr; }
       .charts-row { grid-template-columns: 1fr; }
-      .topbar-match { display: none; }
     }
     @media (max-width: 640px) {
       .charts-grid { grid-template-columns: 1fr; }
       .metric-guide { grid-template-columns: 1fr; }
+      .main { padding-top: 60px; }
     }
   </style>
 </head>
 <body>
 
-  <!-- ── Topbar ──────────────────────────────────────── -->
-  <header class="topbar">
-    <a href="/" class="topbar-logo">
-      <div class="topbar-logo-icon">🏀</div>
-      <span class="topbar-logo-text">BasketScrape</span>
-    </a>
+  <!-- ── Mobile Bar (hamburger) ──────────────────────── -->
+  <div class="mobile-bar">
+    <button class="hamburger" id="hamburgerBtn">☰</button>
+    <div class="mobile-score" id="mobileScore">– : –</div>
+  </div>
 
-    <div class="topbar-sep"></div>
+  <!-- ── Sidebar Overlay (mobile backdrop) ───────────── -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <div class="topbar-match">
-      <span class="topbar-team is-home" id="homeName">Ev Sahibi</span>
-      <div class="topbar-score" id="scoreDisplay">–:–</div>
-      <span class="topbar-team is-away" id="awayName">Deplasman</span>
+  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar" id="appSidebar">
+
+    <div class="sidebar-header">
+      <a href="/" class="sb-logo">
+        <div class="sb-logo-icon">🏀</div>
+        <span class="sb-logo-text">BasketScrape</span>
+      </a>
+      <button class="sb-close" id="sidebarClose">✕</button>
     </div>
 
-    <div class="topbar-actions">
-      <span class="match-status" id="matchStatus">Bağlanıyor...</span>
-      <button id="menuBtn" class="analytics-btn">Analiz →</button>
+    <div class="sidebar-body">
+
+      <!-- Match info card -->
+      <div class="sb-match">
+        <div class="match-status" id="matchStatus">Bağlanıyor...</div>
+        <div class="sb-teams">
+          <div class="sb-team-row is-home">
+            <div class="sb-team-dot"></div>
+            <span class="sb-team-name" id="homeName">Ev Sahibi</span>
+          </div>
+          <div class="sb-score-row">
+            <div class="sb-score" id="scoreDisplay">–:–</div>
+          </div>
+          <div class="sb-team-row is-away">
+            <div class="sb-team-dot"></div>
+            <span class="sb-team-name" id="awayName">Deplasman</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="sb-group">
+        <div class="sb-group-label">Navigasyon</div>
+
+        <a class="sb-item" href="#section-tables">
+          <span class="sb-item-icon">📊</span>
+          Skor Tabloları
+        </a>
+        <a class="sb-item" href="#section-x40">
+          <span class="sb-item-icon">📐</span>
+          ×40 Normalize
+        </a>
+        <a class="sb-item" href="#section-charts">
+          <span class="sb-item-icon">📈</span>
+          Grafikler
+        </a>
+      </div>
+
+      <div class="sb-sep"></div>
+
+      <div class="sb-group">
+        <div class="sb-group-label">Araçlar</div>
+
+        <!-- menuBtn açısı korunuyor — analysis.js bu id'yi dinliyor -->
+        <button class="sb-item analytics-trigger" id="menuBtn">
+          <span class="sb-item-icon">🔍</span>
+          Analiz Paneli
+          <span class="sb-item-badge">→</span>
+        </button>
+      </div>
+
     </div>
-  </header>
 
-  <!-- ── Dashboard ───────────────────────────────────── -->
-  <main class="dashboard">
+    <div class="sidebar-footer">
+      <div class="sb-footer-info">
+        <div class="sb-footer-dot"></div>
+        <span class="sb-footer-text"><strong>Flashscore</strong> · Canlı</span>
+      </div>
+    </div>
 
-    <!-- Gerçek skorlar -->
-    <div class="section">
+  </aside>
+
+  <!-- ── Main Content ─────────────────────────────────── -->
+  <main class="main">
+
+    <!-- Skor Tabloları -->
+    <div class="section" id="section-tables">
       <div class="section-label">Dakika Bazlı Skor</div>
       <div class="tables-row">
 
@@ -528,13 +686,11 @@
           <div class="table-card-header" id="homeTitle">Ev Sahibi</div>
           <div class="table-scroll">
             <table>
-              <thead>
-                <tr>
-                  <th>Periyot</th>
-                  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
-                  <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
-                </tr>
-              </thead>
+              <thead><tr>
+                <th>Periyot</th>
+                <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+              </tr></thead>
               <tbody id="homeTbody"></tbody>
             </table>
           </div>
@@ -544,35 +700,33 @@
           <div class="table-card-header" id="awayTitle">Deplasman</div>
           <div class="table-scroll">
             <table>
-              <thead>
-                <tr>
-                  <th>Periyot</th>
-                  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
-                  <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
-                </tr>
-              </thead>
+              <thead><tr>
+                <th>Periyot</th>
+                <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+              </tr></thead>
               <tbody id="awayTbody"></tbody>
             </table>
           </div>
         </div>
 
       </div>
+    </div>
 
-      <!-- ×40 Normalize -->
-      <div class="section-label" style="margin-top:18px;">Tempo Normalize (×40 dakika)</div>
+    <!-- ×40 Tabloları -->
+    <div class="section" id="section-x40">
+      <div class="section-label">Tempo Normalize (×40 dakika)</div>
       <div class="tables-row three-col">
 
         <div class="table-card home">
           <div class="table-card-header" id="homeTitle40">Ev Sahibi (×40)</div>
           <div class="table-scroll">
             <table>
-              <thead>
-                <tr>
-                  <th>Periyot</th>
-                  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
-                  <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
-                </tr>
-              </thead>
+              <thead><tr>
+                <th>Periyot</th>
+                <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+              </tr></thead>
               <tbody id="homeTbody40"></tbody>
             </table>
           </div>
@@ -582,13 +736,11 @@
           <div class="table-card-header">Toplam (×40)</div>
           <div class="table-scroll">
             <table>
-              <thead>
-                <tr>
-                  <th>Periyot</th>
-                  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
-                  <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
-                </tr>
-              </thead>
+              <thead><tr>
+                <th>Periyot</th>
+                <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+              </tr></thead>
               <tbody id="totalTbody"></tbody>
             </table>
           </div>
@@ -598,13 +750,11 @@
           <div class="table-card-header" id="awayTitle40">Deplasman (×40)</div>
           <div class="table-scroll">
             <table>
-              <thead>
-                <tr>
-                  <th>Periyot</th>
-                  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
-                  <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
-                </tr>
-              </thead>
+              <thead><tr>
+                <th>Periyot</th>
+                <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+              </tr></thead>
               <tbody id="awayTbody40"></tbody>
             </table>
           </div>
@@ -614,7 +764,7 @@
     </div>
 
     <!-- Grafikler -->
-    <div class="section">
+    <div class="section" id="section-charts">
       <div class="section-label">Performans Grafikleri</div>
       <div class="charts-row">
         <div class="chart-card">
@@ -630,7 +780,7 @@
 
   </main>
 
-  <!-- ── Side Panel ───────────────────────────────────── -->
+  <!-- ── Analytics Side Panel (right overlay) ─────────── -->
   <div id="sidePanel" class="side-panel">
     <div class="panel-inner">
 
@@ -724,10 +874,60 @@
     </div>
   </div>
 
-  <!-- JS (değiştirilmedi) -->
-  <a href="/" class="back-link" id="backLink">← Geri</a>
+  <!-- hidden — JS compat -->
+  <a href="/" class="back-link">← Geri</a>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="analysis.js"></script>
+
+  <!-- Sidebar toggle (mobile) + nav smooth scroll -->
+  <script>
+    const sidebar      = document.getElementById('appSidebar');
+    const overlay      = document.getElementById('sidebarOverlay');
+    const hamburger    = document.getElementById('hamburgerBtn');
+    const sbClose      = document.getElementById('sidebarClose');
+    const mobileScore  = document.getElementById('mobileScore');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+
+    function openSidebar()  { sidebar.classList.add('open');  overlay.style.display = 'block'; }
+    function closeSidebar() { sidebar.classList.remove('open'); overlay.style.display = 'none'; }
+
+    hamburger.addEventListener('click', openSidebar);
+    sbClose.addEventListener('click', closeSidebar);
+    overlay.addEventListener('click', closeSidebar);
+
+    // Reflect score in mobile bar
+    const scoreObserver = new MutationObserver(() => {
+      mobileScore.textContent = scoreDisplay.textContent;
+    });
+    scoreObserver.observe(scoreDisplay, { childList: true, characterData: true, subtree: true });
+
+    // Close sidebar on nav link click (mobile)
+    document.querySelectorAll('.sb-item[href]').forEach(link => {
+      link.addEventListener('click', () => {
+        if (window.innerWidth <= 768) closeSidebar();
+      });
+    });
+
+    // Active nav item highlight on scroll
+    const sections = [
+      { id: 'section-tables', link: document.querySelector('.sb-item[href="#section-tables"]') },
+      { id: 'section-x40',    link: document.querySelector('.sb-item[href="#section-x40"]') },
+      { id: 'section-charts', link: document.querySelector('.sb-item[href="#section-charts"]') },
+    ];
+
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        const sec = sections.find(s => s.id === entry.target.id);
+        if (sec) sec.link.classList.toggle('active', entry.isIntersecting);
+      });
+    }, { threshold: 0.25 });
+
+    sections.forEach(s => {
+      const el = document.getElementById(s.id);
+      if (el) io.observe(el);
+    });
+  </script>
 </body>
 </html>
