@@ -1165,6 +1165,171 @@
       </div>
     </div>
 
+    <!-- ── Sayfa: Parametreler ──────────────────────────── -->
+    <div class="page" id="page-params">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Parametreler</div>
+          <div class="page-sub">Periyot temposu, düzenli düşüş analizi ve 3. periyot tahmin modeli</div>
+        </div>
+      </div>
+
+      <!-- Periyot Bazlı Tempo -->
+      <div class="section-label" style="margin-bottom:8px">Periyot Başına Atılan Toplam Sayı</div>
+      <div class="params-grid" id="paramsQuarterGrid">
+        <!-- Ev Sahibi Periyot Barları -->
+        <div class="param-card">
+          <div class="param-card-title" id="paramHomeName">Ev Sahibi</div>
+          <div class="param-q-row">
+            <span class="param-q-label">P1</span>
+            <div class="param-q-bar-wrap"><div class="param-q-bar home" id="hq1bar" style="width:0%"></div></div>
+            <span class="param-q-val" id="hq1val">—</span>
+          </div>
+          <div class="param-q-row">
+            <span class="param-q-label">P2</span>
+            <div class="param-q-bar-wrap"><div class="param-q-bar home" id="hq2bar" style="width:0%"></div></div>
+            <span class="param-q-val" id="hq2val">—</span>
+          </div>
+          <div class="param-q-row">
+            <span class="param-q-label">P3</span>
+            <div class="param-q-bar-wrap"><div class="param-q-bar home" id="hq3bar" style="width:0%"></div></div>
+            <span class="param-q-val" id="hq3val">—</span>
+          </div>
+          <div class="param-q-row">
+            <span class="param-q-label">P4</span>
+            <div class="param-q-bar-wrap"><div class="param-q-bar home" id="hq4bar" style="width:0%"></div></div>
+            <span class="param-q-val" id="hq4val">—</span>
+          </div>
+        </div>
+
+        <!-- Deplasman Periyot Barları -->
+        <div class="param-card">
+          <div class="param-card-title" id="paramAwayName">Deplasman</div>
+          <div class="param-q-row">
+            <span class="param-q-label">P1</span>
+            <div class="param-q-bar-wrap"><div class="param-q-bar away" id="aq1bar" style="width:0%"></div></div>
+            <span class="param-q-val" id="aq1val">—</span>
+          </div>
+          <div class="param-q-row">
+            <span class="param-q-label">P2</span>
+            <div class="param-q-bar-wrap"><div class="param-q-bar away" id="aq2bar" style="width:0%"></div></div>
+            <span class="param-q-val" id="aq2val">—</span>
+          </div>
+          <div class="param-q-row">
+            <span class="param-q-label">P3</span>
+            <div class="param-q-bar-wrap"><div class="param-q-bar away" id="aq3bar" style="width:0%"></div></div>
+            <span class="param-q-val" id="aq3val">—</span>
+          </div>
+          <div class="param-q-row">
+            <span class="param-q-label">P4</span>
+            <div class="param-q-bar-wrap"><div class="param-q-bar away" id="aq4bar" style="width:0%"></div></div>
+            <span class="param-q-val" id="aq4val">—</span>
+          </div>
+        </div>
+
+        <!-- Toplam Periyot -->
+        <div class="param-card params-grid-full">
+          <div class="param-card-title">İki Takım Toplamı</div>
+          <div class="param-q-row">
+            <span class="param-q-label">P1</span>
+            <div class="param-q-bar-wrap"><div class="param-q-bar total" id="tq1bar" style="width:0%"></div></div>
+            <span class="param-q-val" id="tq1val">—</span>
+          </div>
+          <div class="param-q-row">
+            <span class="param-q-label">P2</span>
+            <div class="param-q-bar-wrap"><div class="param-q-bar total" id="tq2bar" style="width:0%"></div></div>
+            <span class="param-q-val" id="tq2val">—</span>
+          </div>
+          <div class="param-q-row">
+            <span class="param-q-label">P3</span>
+            <div class="param-q-bar-wrap"><div class="param-q-bar total" id="tq3bar" style="width:0%"></div></div>
+            <span class="param-q-val" id="tq3val">—</span>
+          </div>
+          <div class="param-q-row">
+            <span class="param-q-label">P4</span>
+            <div class="param-q-bar-wrap"><div class="param-q-bar total" id="tq4bar" style="width:0%"></div></div>
+            <span class="param-q-val" id="tq4val">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Düzenli Düşüş Analizi -->
+      <div class="section-label" style="margin-bottom:8px">Desen Analizi</div>
+
+      <div class="pattern-card">
+        <div class="pattern-header">
+          <span class="pattern-badge inactive" id="ddBadge">Bekleniyor</span>
+          <span class="pattern-name">Düzenli Düşüş</span>
+        </div>
+        <div class="pattern-desc">
+          1. periyot toplamı &gt; 2. periyot toplamı olan maçlarda 3. periyot toplamının 4. periyot toplamından yüksek olması beklenir.
+          Gözlemlenen sıra aşağıda gösterilmektedir.
+        </div>
+        <div class="pattern-chain" id="ddChain">
+          <span class="chain-item equal" id="ddP1">P1: —</span>
+          <span class="chain-arrow">→</span>
+          <span class="chain-item equal" id="ddP2">P2: —</span>
+          <span class="chain-arrow">→</span>
+          <span class="chain-item equal" id="ddP3">P3: —</span>
+          <span class="chain-arrow">→</span>
+          <span class="chain-item equal" id="ddP4">P4: —</span>
+        </div>
+        <div style="font-size:11px;color:var(--dim);margin-top:10px;" id="ddVerdict"></div>
+      </div>
+
+      <!-- 3. Periyot 5. Dakika Tahmini -->
+      <div class="section-label" style="margin-bottom:8px">Tahmin Motoru</div>
+
+      <div class="pred-box">
+        <div class="pred-box-header">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--home)">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span class="pred-box-title">3. Periyot 5. Dakika — Maç Sonu Skoru Tahmini</span>
+        </div>
+
+        <!-- Kilit durumu (Q3 min 5'e kadar) -->
+        <div id="predLocked">
+          <div class="pred-locked">
+            <div class="lock-icon">🔒</div>
+            <div>Tahmin için 3. periyot 5. dakikası bekleniyor</div>
+            <div class="lock-sub" id="predCountdown">Mevcut: Dakika —</div>
+          </div>
+        </div>
+
+        <!-- Açık durum (Q3 min 5 sonrası) -->
+        <div id="predOpen" style="display:none">
+          <div class="pred-content">
+            <table class="pred-params-table">
+              <tr><td>P1 toplam (gerçekleşen)</td><td id="ppQ1"></td></tr>
+              <tr><td>P2 toplam (gerçekleşen)</td><td id="ppQ2"></td></tr>
+              <tr><td>P3 ilk 5 dk toplam</td><td id="ppQ3h5"></td></tr>
+              <tr><td>Düzenli Düşüş deseni</td><td id="ppDD"></td></tr>
+              <tr><td>Anlık skor farkı</td><td id="ppDiff"></td></tr>
+              <tr><td>Tahmini P3 sonu toplamı</td><td id="ppQ3est"></td></tr>
+              <tr><td>Tahmini P4 toplamı</td><td id="ppQ4est"></td></tr>
+              <tr><td>Tahmini maç sonu skoru</td><td id="ppFinal"></td></tr>
+            </table>
+
+            <div class="pred-result neutral" id="predResult">
+              <div class="pred-result-icon" id="predIcon">📊</div>
+              <div class="pred-result-body">
+                <strong id="predLabel">Veri toplanıyor…</strong>
+                <span id="predExplain"></span>
+              </div>
+            </div>
+
+            <div class="pred-confidence">
+              <span class="pred-conf-label">Güven</span>
+              <div class="pred-conf-bar-wrap"><div class="pred-conf-bar" id="predConfBar" style="width:0%"></div></div>
+              <span class="pred-conf-val" id="predConfVal">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
   </main>
 
   <!-- ── JS compat: analysis.js bu ID'leri arıyor ─────── -->
@@ -1229,12 +1394,205 @@
         requestAnimationFrame(renderHeatmaps);
       }
 
+      if (pageId === 'page-params') {
+        requestAnimationFrame(renderParams);
+      }
+
       if (window.innerWidth <= 768) closeSidebar();
     }
 
     document.querySelectorAll('.sb-item[data-page]').forEach(btn => {
       btn.addEventListener('click', () => switchPage(btn.dataset.page));
     });
+
+    /* ── Parametreler Sayfası ───────────────────────── */
+    let paramsState = null; // son gelen scoreUpdate snapshot'u
+
+    function quarterSum(minutes, period) {
+      // period: 1-4  →  index: (p-1)*10 … p*10-1
+      const start = (period - 1) * 10;
+      let s = 0;
+      for (let i = start; i < start + 10; i++) s += (minutes[i] || 0);
+      return s;
+    }
+
+    function setBar(barId, valId, value, max) {
+      const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+      const bar = document.getElementById(barId);
+      const val = document.getElementById(valId);
+      if (bar) bar.style.width = pct + '%';
+      if (val) val.textContent  = value;
+    }
+
+    function renderParams() {
+      if (!paramsState) return;
+      const { homeMinutes, awayMinutes, lastAbsoluteMinute, homeName, awayName } = paramsState;
+
+      // Periyot toplamları
+      const hQ = [1,2,3,4].map(p => quarterSum(homeMinutes, p));
+      const aQ = [1,2,3,4].map(p => quarterSum(awayMinutes, p));
+      const tQ = hQ.map((v,i) => v + aQ[i]);
+
+      // İsimler
+      const hn = document.getElementById('paramHomeName');
+      const an = document.getElementById('paramAwayName');
+      if (hn && homeName) hn.textContent = homeName;
+      if (an && awayName) an.textContent = awayName;
+
+      const hMax = Math.max(...hQ, 1);
+      const aMax = Math.max(...aQ, 1);
+      const tMax = Math.max(...tQ, 1);
+
+      [1,2,3,4].forEach((p,i) => {
+        setBar(`hq${p}bar`, `hq${p}val`, hQ[i], hMax);
+        setBar(`aq${p}bar`, `aq${p}val`, aQ[i], aMax);
+        setBar(`tq${p}bar`, `tq${p}val`, tQ[i], tMax);
+      });
+
+      // ── Düzenli Düşüş Analizi ──
+      const badge    = document.getElementById('ddBadge');
+      const verdict  = document.getElementById('ddVerdict');
+      const items    = ['ddP1','ddP2','ddP3','ddP4'];
+      const labels   = ['P1','P2','P3','P4'];
+      const vals     = tQ;
+
+      // Her periyot kutusunu renklendir
+      items.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = `${labels[i]}: ${vals[i]}`;
+        el.className = 'chain-item';
+        if (i > 0) {
+          if (vals[i] < vals[i-1])      el.classList.add('bigger');   // düşüş = pattern doğru
+          else if (vals[i] > vals[i-1]) el.classList.add('smaller');  // yükseliş
+          else                          el.classList.add('equal');
+        } else {
+          el.classList.add('equal');
+        }
+      });
+
+      // Pattern değerlendirmesi
+      const p1p2 = tQ[0] > 0 && tQ[1] > 0; // en az 2 periyot oynanmış
+      const dd12 = tQ[0] > tQ[1];           // P1 > P2: düşüş başladı
+      const p3p4 = tQ[2] > 0;               // P3 oynanmış
+      const dd34 = tQ[2] > tQ[3];           // P3 > P4: devam etti
+
+      if (!p1p2) {
+        badge.textContent = 'Bekleniyor';
+        badge.className   = 'pattern-badge inactive';
+        verdict.textContent = 'En az 2 periyot tamamlanması gerekiyor.';
+      } else if (!dd12) {
+        badge.textContent = 'Uymuyor';
+        badge.className   = 'pattern-badge warning';
+        verdict.textContent = `P1 (${tQ[0]}) ≤ P2 (${tQ[1]}) — düzenli düşüş deseni bu maçta başlamadı.`;
+      } else if (!p3p4) {
+        badge.textContent = 'Koşul Aktif';
+        badge.className   = 'pattern-badge active';
+        verdict.textContent = `P1 (${tQ[0]}) > P2 (${tQ[1]}) — desen aktif. P3 bekleniyor, P3 > P4 öngörülüyor.`;
+      } else {
+        const holds = dd34;
+        badge.textContent = holds ? 'Doğrulandı ✓' : 'Bozuldu ✗';
+        badge.className   = holds ? 'pattern-badge active' : 'pattern-badge warning';
+        verdict.textContent = holds
+          ? `P1>${tQ[0]} P2>${tQ[1]} P3>${tQ[2]} P4>${tQ[3]} — desen tüm periyotlarda doğrulandı.`
+          : `P3 (${tQ[2]}) ≤ P4 (${tQ[3]}) — P1>P2 koşulu karşılanmış olmasına rağmen desen P3-P4'te bozuldu.`;
+      }
+
+      // ── 3. Periyot 5. Dakika Tahmini ──
+      const lockedEl = document.getElementById('predLocked');
+      const openEl   = document.getElementById('predOpen');
+      const cdEl     = document.getElementById('predCountdown');
+
+      if (cdEl) {
+        const p = lastAbsoluteMinute > 0
+          ? `Dakika ${lastAbsoluteMinute} (P${Math.ceil(lastAbsoluteMinute/10)} - ${((lastAbsoluteMinute-1)%10)+1}. dk)`
+          : 'Dakika —';
+        cdEl.textContent = `Mevcut: ${p}`;
+      }
+
+      // Eşik: 3. periyot 5. dakikası = mutlak dakika 25
+      const THRESHOLD = 25;
+      if (lastAbsoluteMinute < THRESHOLD) {
+        if (lockedEl) lockedEl.style.display = '';
+        if (openEl)   openEl.style.display   = 'none';
+        return;
+      }
+
+      // Açık mod
+      if (lockedEl) lockedEl.style.display = 'none';
+      if (openEl)   openEl.style.display   = '';
+
+      // P3 ilk 5 dakika toplamı (mutlak 21-25)
+      let q3h5 = 0;
+      for (let i = 20; i < 25; i++) q3h5 += (homeMinutes[i]||0) + (awayMinutes[i]||0);
+
+      // Tahmini P3 sonu = ilk 5 dakikanın 2 katı (tempo projeksiyon)
+      const q3Est = q3h5 * 2;
+
+      // Tahmini P4: eğer DD deseni varsa P3'ten düşük, yoksa P3 ile eşit varsay
+      const q4Est = dd12 ? Math.round(q3Est * 0.88) : Math.round(q3Est * 1.0);
+
+      // Şimdiye kadarki kümülatif skor (mutlak dakika bazında)
+      const hmCum = homeMinutes.slice(0, lastAbsoluteMinute).reduce((a,b)=>a+b,0);
+      const amCum = awayMinutes.slice(0, lastAbsoluteMinute).reduce((a,b)=>a+b,0);
+      const diff  = hmCum - amCum;
+
+      // Kalan sayı tahmini (P3 kalan 5 dk + P4)
+      const remaining = (q3Est - q3h5) + q4Est;
+      const homeFinalEst = hmCum + Math.round(remaining * (hmCum / (hmCum + amCum + 0.001)));
+      const awayFinalEst = amCum + Math.round(remaining * (amCum / (hmCum + amCum + 0.001)));
+
+      // DOM güncelle
+      const hn2 = homeName || 'Ev';
+      const an2 = awayName || 'Dep';
+      document.getElementById('ppQ1').textContent    = tQ[0];
+      document.getElementById('ppQ2').textContent    = tQ[1];
+      document.getElementById('ppQ3h5').textContent  = q3h5;
+      document.getElementById('ppDD').textContent    = dd12 ? 'Evet (aktif)' : 'Hayır';
+      document.getElementById('ppDiff').textContent  = (diff > 0 ? '+' : '') + diff + ` (${hn2} ${diff > 0 ? 'önde' : diff < 0 ? 'geride' : 'eşit'})`;
+      document.getElementById('ppQ3est').textContent = q3Est;
+      document.getElementById('ppQ4est').textContent = q4Est;
+      document.getElementById('ppFinal').textContent = `${homeFinalEst} - ${awayFinalEst}`;
+
+      // Sonuç kutusu
+      const resultEl  = document.getElementById('predResult');
+      const iconEl    = document.getElementById('predIcon');
+      const labelEl   = document.getElementById('predLabel');
+      const explainEl = document.getElementById('predExplain');
+
+      const totalFinal = homeFinalEst + awayFinalEst;
+      const prevAvg    = (tQ[0] + tQ[1]) / 2;
+
+      // Güven skoru: ne kadar veri var ve desen tutarlı mı?
+      let confidence = 50;
+      if (dd12) confidence += 20;             // P1>P2 doğrulandı
+      if (tQ[2] > 0) confidence += 10;        // P3 başladı, data var
+      if (Math.abs(diff) > 5) confidence += 10; // net lider var
+      if (lastAbsoluteMinute >= 30) confidence += 10; // P3 tamamlandı
+      confidence = Math.min(confidence, 95);
+
+      let cls, icon, label, explain;
+      if (totalFinal > prevAvg * 3.8) {
+        cls = 'high'; icon = '📈'; label = 'Yüksek Tempo Bekleniyor';
+        explain = `Tahmini maç sonu: ${homeFinalEst}-${awayFinalEst} (toplam ~${totalFinal}). Mevcut tempo yüksek seyrediyor.`;
+      } else if (totalFinal < prevAvg * 3.2) {
+        cls = 'low'; icon = '📉'; label = 'Düşük Tempo Bekleniyor';
+        explain = `Tahmini maç sonu: ${homeFinalEst}-${awayFinalEst} (toplam ~${totalFinal}). ${dd12?'Düzenli düşüş deseni aktif.':'Tempo yavaşladı.'}`;
+      } else {
+        cls = 'neutral'; icon = '📊'; label = 'Orta Tempo';
+        explain = `Tahmini maç sonu: ${homeFinalEst}-${awayFinalEst} (toplam ~${totalFinal}). Belirgin bir eğilim yok.`;
+      }
+
+      resultEl.className  = `pred-result ${cls}`;
+      iconEl.textContent  = icon;
+      labelEl.textContent = label;
+      explainEl.textContent = explain;
+
+      const confBar = document.getElementById('predConfBar');
+      const confVal = document.getElementById('predConfVal');
+      if (confBar) confBar.style.width = confidence + '%';
+      if (confVal) confVal.textContent  = `%${confidence}`;
+    }
 
     /* ── Kombinasyon Grafiği ────────────────────────── */
     let combinedChart = null;
