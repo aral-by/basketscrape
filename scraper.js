@@ -1,60 +1,154 @@
 const puppeteer = require('puppeteer');
 const ScoreBoard = require('./gameState');
 
-const XPATHS = {
-  homeName:  '/html/body/div[4]/div[1]/div/div/main/div[5]/div[1]/div[2]/div[1]/div[2]/div[3]/div[2]/a',
-  awayName:  '/html/body/div[4]/div[1]/div/div/main/div[5]/div[1]/div[2]/div[1]/div[4]/div[3]/div[1]/a',
-  homeScore: '/html/body/div[4]/div[1]/div/div/main/div[5]/div[1]/div[2]/div[1]/div[3]/div/div[1]/span[1]',
-  awayScore: '/html/body/div[4]/div[1]/div/div/main/div[5]/div[1]/div[2]/div[1]/div[3]/div/div[1]/span[3]',
-  period:    '/html/body/div[4]/div[1]/div/div/main/div[5]/div[1]/div[2]/div[1]/div[3]/div/div[2]/span[1]',
-  minute:    '/html/body/div[4]/div[1]/div/div/main/div[5]/div[1]/div[2]/div[1]/div[3]/div/div[2]/span[2]',
-  status:    '/html/body/div[4]/div[1]/div/div/main/div[5]/div[1]/div[2]/div[1]/div[3]/div/div[2]/span',
-  statsBtn:  '/html/body/div[4]/div[1]/div/div/main/div[5]/div[1]/div[5]/div[1]/div/a[3]/button',
+// CSS selectors tried left-to-right; first non-empty match wins.
+// When Flashscore updates their DOM, prepend the new selector to the relevant array
+// instead of replacing — this keeps backwards compatibility with older layouts.
+const SELECTORS = {
+  homeName: [
+    // Flashscore 2024-2025 layout
+    '.duelParticipant__home .participant__participantName',
+    '[class*="duelParticipant__home"] [class*="participantName"]',
+    // Older / fallback
+    '[class*="home"] [class*="participantName"]',
+  ],
+  awayName: [
+    '.duelParticipant__away .participant__participantName',
+    '[class*="duelParticipant__away"] [class*="participantName"]',
+    '[class*="away"] [class*="participantName"]',
+  ],
+  homeScore: [
+    // Score spans: home - dash - away  →  :first-child = home
+    '.detailScore__wrapper > span:first-child',
+    '[class*="detailScore__wrapper"] > span:first-child',
+    '[class*="homeScore"]',
+  ],
+  awayScore: [
+    // :last-child = away score span
+    '.detailScore__wrapper > span:last-child',
+    '[class*="detailScore__wrapper"] > span:last-child',
+    '[class*="awayScore"]',
+  ],
+  // Period text: "1. Çeyrek", "Q2", "2nd Quarter", "1. Uzatma" …
+  period: [
+    '.smh__stage',
+    '[class*="smh__stage"]',
+    '[class*="matchStatusStage"]',
+    '[class*="detailScore__status"] [class*="stage"]',
+    // Generic fallback: first span inside any "status" wrapper
+    '[class*="status"] > span:first-child',
+  ],
+  // Minute within the current period: plain integer text
+  minute: [
+    '.smh__minute',
+    '[class*="smh__minute"]',
+    '[class*="minuteWrapper"] > span:first-child',
+    '[class*="timer"] > span:first-child',
+  ],
+  // Statistics tab button — used in fetchStats()
+  statsTab: [
+    // data-testid is the most stable (already used in stats row parsing)
+    '[data-testid="wcl-tab-statistics"]',
+    'a[href*="statistics"] button',
+    'a[href*="statistics"]',
+    '.tabs a:nth-child(3)',
+  ],
 };
 
-async function getXPathText(page, xpath) {
-  try {
-    return await page.evaluate((xp) => {
-      const result = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-      const node = result.singleNodeValue;
-      return node ? node.textContent.trim() : null;
-    }, xpath);
-  } catch {
-    return null;
+// Returns text content of the first selector that finds a non-empty element.
+async function getElementText(page, selectors) {
+  for (const sel of selectors) {
+    try {
+      const text = await page.$eval(sel, el => el.textContent.trim());
+      if (text) return text;
+    } catch {}
   }
+  return null;
 }
 
-// "1. Çeyrek" → 1, "4. Çeyrek" → 4, "1. Uzatma" → 5
+// Clicks the first selector that resolves to an element. Returns true on success.
+async function clickElement(page, selectors) {
+  for (const sel of selectors) {
+    try {
+      await page.click(sel);
+      return true;
+    } catch {}
+  }
+  return false;
+}
+
+// When critical selectors fail, dump nearby elements to help identify new selectors.
+async function debugPageState(page, log) {
+  try {
+    const snapshot = await page.evaluate(() => {
+      const hits = [];
+      document.querySelectorAll('[class]').forEach(el => {
+        const txt = el.textContent.trim();
+        if (!txt || txt.length > 50) return;
+        const cls = el.getAttribute('class') || '';
+        if (/score|stage|status|period|quarter|minute|time|çeyrek|devre/i.test(cls + txt)) {
+          hits.push(`<${el.tagName.toLowerCase()} class="${cls.split(' ')[0]}">${txt}</${el.tagName.toLowerCase()}>`);
+        }
+      });
+      return [...new Set(hits)].slice(0, 20);
+    });
+    log('[DEBUG] Sayfada bulunan elementler:\n' + (snapshot.join('\n') || '  — hiçbir şey bulunamadı'));
+  } catch {}
+}
+
+// "1. Çeyrek" → 1  |  "Q2" / "2nd Quarter" → 2  |  "1. Uzatma" / "OT1" → 5
 function parseQuarter(text) {
   if (!text) return null;
   const t = text.trim();
-  const qMatch = t.match(/^(\d+)\.\s*[Çç]eyrek/i);
-  if (qMatch) return parseInt(qMatch[1]);
-  const otMatch = t.match(/^(\d+)\.\s*[Uu]zatma/i);
-  if (otMatch) return 4 + parseInt(otMatch[1]);
+
+  // Turkish: "1. Çeyrek", "2. Çeyrek" …
+  const qTr = t.match(/^(\d+)\.\s*[Çç]eyrek/i);
+  if (qTr) return parseInt(qTr[1]);
+
+  // Turkish OT: "1. Uzatma", "2. Uzatma" …
+  const otTr = t.match(/^(\d+)\.\s*[Uu]zatma/i);
+  if (otTr) return 4 + parseInt(otTr[1]);
   if (/uzatma/i.test(t)) return 5;
+
+  // English abbreviated: "Q1" … "Q4"
+  const qEn = t.match(/^Q(\d+)$/i);
+  if (qEn) return parseInt(qEn[1]);
+
+  // English long: "1st Quarter", "2nd Quarter", "3rd Quarter", "4th Quarter"
+  const qEnLong = t.match(/^(\d+)[a-z]{0,2}\s*quarter/i);
+  if (qEnLong) return parseInt(qEnLong[1]);
+
+  // English OT: "OT", "OT1", "OT2" …
+  const otEn = t.match(/^OT(\d*)$/i);
+  if (otEn) return 4 + (parseInt(otEn[1]) || 1);
+
+  // Numeric only (some layouts just show "1", "2" …)
+  const bare = t.match(/^(\d)$/);
+  if (bare) return parseInt(bare[1]);
+
   return null;
 }
 
 function isMatchFinished(text) {
   if (!text) return false;
-  const t = text.trim();
-  if (t === 'Bitti') return true;
-  const tl = t.toLowerCase();
-  return tl === 'ms' || tl.includes('bitti') || tl.includes('finish') || tl.includes('final') || tl.includes('ended') || tl.includes('maç sonu');
+  const t = text.trim().toLowerCase();
+  return t === 'bitti' || t === 'ms' || t === 'final' || t === 'ended' ||
+    t.includes('bitti') || t.includes('finish') || t.includes('final') ||
+    t.includes('ended') || t.includes('maç sonu');
 }
 
 function isHalftime(text) {
   if (!text) return false;
   const t = text.trim().toLowerCase();
-  return t.includes('devre') || t === 'iy' || t.includes('half') || t.includes('break');
+  return t.includes('devre') || t === 'iy' || t === 'ht' ||
+    t.includes('half') || t.includes('break') || t.includes('interval');
 }
 
-async function parseMatchData(page) {
-  const periodText = await getXPathText(page, XPATHS.period);
-  const minuteText = await getXPathText(page, XPATHS.minute);
-  const homeText   = await getXPathText(page, XPATHS.homeScore);
-  const awayText   = await getXPathText(page, XPATHS.awayScore);
+async function parseMatchData(page, log) {
+  const periodText = await getElementText(page, SELECTORS.period);
+  const minuteText = await getElementText(page, SELECTORS.minute);
+  const homeText   = await getElementText(page, SELECTORS.homeScore);
+  const awayText   = await getElementText(page, SELECTORS.awayScore);
 
   const period    = parseQuarter(periodText);
   const minute    = minuteText ? (parseInt(minuteText) || null) : null;
@@ -63,32 +157,35 @@ async function parseMatchData(page) {
   const finished  = isMatchFinished(periodText);
   const halftime  = isHalftime(periodText);
 
+  // Log when period selector returns nothing so we can detect future DOM changes early
+  if (!periodText && log) {
+    log('[UYARI] period selector hiçbir şey bulamadı — Flashscore DOM değişmiş olabilir.');
+    await debugPageState(page, log);
+  }
+
   return { periodText, period, minute, homeScore, awayScore, finished, halftime };
 }
 
-// İstatistik sekmesine geçip tüm verileri section gruplu olarak döndür
-// Dönüş: [ { title, rows: [ { name, home, away } ] } ]
+// Clicks the statistics tab and returns structured section data.
+// Returns: [ { title, rows: [ { name, home, away } ] } ] or null on failure.
 async function fetchStats(page) {
   try {
-    // İstatistikler sekmesi butonuna tıkla
-    await page.evaluate((xp) => {
-      const result = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-      const node = result.singleNodeValue;
-      if (node) node.click();
-    }, XPATHS.statsBtn);
+    const clicked = await clickElement(page, SELECTORS.statsTab);
+    if (!clicked) return null;
 
-    // İçerik yüklensin
-    await new Promise(r => setTimeout(r, 1500));
+    // Wait for at least one statistics row instead of a fixed timeout
+    try {
+      await page.waitForSelector('[data-testid="wcl-statistics"]', { timeout: 5000 });
+    } catch {
+      // Selector not found within 5 s; try to parse whatever is on the page
+    }
 
     return await page.evaluate(() => {
       const sections = [];
-
-      // Her section div'ini bul
       document.querySelectorAll('.section').forEach(sectionEl => {
         const titleEl = sectionEl.querySelector('.sectionHeader, .stat__header');
         const title   = titleEl ? titleEl.textContent.trim() : '';
-
-        const rows = [];
+        const rows    = [];
         sectionEl.querySelectorAll('[data-testid="wcl-statistics"]').forEach(rowEl => {
           const values   = rowEl.querySelectorAll('[data-testid="wcl-statistics-value"]');
           const category = rowEl.querySelector('[data-testid="wcl-statistics-category"]');
@@ -100,13 +197,11 @@ async function fetchStats(page) {
             });
           }
         });
-
         if (rows.length > 0) sections.push({ title, rows });
       });
-
       return sections;
     });
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -121,9 +216,9 @@ async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
   let watchTimer = null;
 
   const scoreBoard = new ScoreBoard();
-  let lastStats         = null;
-  let lastStatsFetchAt  = 0;
-  const STATS_INTERVAL  = 30_000; // 30 sn
+  let lastStats        = null;
+  let lastStatsFetchAt = 0;
+  const STATS_INTERVAL = 30_000; // ms
 
   function stop() {
     stopped = true;
@@ -147,11 +242,11 @@ async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
     log('Sayfa açılıyor...');
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
 
-    const homeName = (await getXPathText(page, XPATHS.homeName)) || 'Ev Sahibi';
-    const awayName = (await getXPathText(page, XPATHS.awayName)) || 'Misafir';
+    const homeName = (await getElementText(page, SELECTORS.homeName)) || 'Ev Sahibi';
+    const awayName = (await getElementText(page, SELECTORS.awayName)) || 'Misafir';
     log(`Takımlar: ${homeName} - ${awayName}`);
 
-    const initialData = await parseMatchData(page);
+    const initialData = await parseMatchData(page, log);
 
     if (initialData.finished) {
       log('Maç zaten bitmiş.');
@@ -171,7 +266,7 @@ async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
         if (stopped) return reject(new Error('stopped'));
         try {
           await page.reload({ waitUntil: 'networkidle2', timeout: 15000 });
-          const data = await parseMatchData(page);
+          const data = await parseMatchData(page, log);
           log('Durum: ' + (data.periodText || '—'));
           if (data.finished) {
             status({ status: 'finished', homeName, awayName, message: 'Bu maç sona ermiş.' });
@@ -188,6 +283,7 @@ async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
         }
         watchTimer = setTimeout(checkStart, 3000);
       }
+
       if (initialData.period && initialData.period >= 1) {
         resolve();
       } else {
@@ -200,7 +296,6 @@ async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
     log('Ana servis başladı.');
     status({ status: 'running', homeName, awayName, message: 'Maç devam ediyor.' });
 
-    // Maç başlar başlamaz ilk istatistikleri çek
     log('İlk istatistikler alınıyor...');
     lastStats        = await fetchStats(page);
     lastStatsFetchAt = Date.now();
@@ -209,7 +304,6 @@ async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
     async function mainLoop() {
       if (stopped) return;
       try {
-        // Her 30 sn'de istatistikleri güncelle
         const now = Date.now();
         if (now - lastStatsFetchAt >= STATS_INTERVAL) {
           const fresh = await fetchStats(page);
@@ -220,12 +314,11 @@ async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
           }
         }
 
-        const data = await parseMatchData(page);
+        const data = await parseMatchData(page, log);
 
         if (data.finished) {
           log('Maç bitti.');
           status({ status: 'finished', homeName, awayName, message: 'Maç sona erdi.' });
-          // Son istatistikleri de çek
           const finalStats = await fetchStats(page);
           onEnd({ reason: 'finished', state: { ...scoreBoard.getState(), homeName, awayName, stats: finalStats || lastStats } });
           stop();
