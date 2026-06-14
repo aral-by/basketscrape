@@ -45,16 +45,6 @@
       --r-xl:        14px;
     }
 
-    .icon {
-      display: block;
-      flex-shrink: 0;
-      stroke: currentColor;
-      fill: none;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
     body {
       font-family: 'Inter', -apple-system, sans-serif;
       background: var(--bg);
@@ -65,9 +55,19 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ─────────────────────────────────────────────────────
+    svg.icon {
+      display: block;
+      flex-shrink: 0;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ═══════════════════════════════════════════════════
        SIDEBAR
-    ───────────────────────────────────────────────────── */
+    ═══════════════════════════════════════════════════ */
     .sidebar {
       position: fixed;
       top: 0; left: 0; bottom: 0;
@@ -77,357 +77,269 @@
       display: flex;
       flex-direction: column;
       z-index: 50;
-      transition: transform 0.22s ease;
+      transition: width 0.22s ease;
+      overflow: hidden;
     }
 
-    /* mobile: hidden by default */
-    @media (max-width: 768px) {
-      .sidebar { transform: translateX(-100%); }
-      .sidebar.open { transform: translateX(0); }
-      .sidebar-overlay { display: block; }
-      .main { margin-left: 0 !important; }
-      .mobile-bar { display: flex !important; }
-    }
+    /* ── Collapsed state ─── */
+    .sidebar.collapsed { width: 64px; }
 
-    /* ── Sidebar Header ─────────────────────────────── */
+    .sidebar.collapsed .sb-logo-text,
+    .sidebar.collapsed .sb-group-label,
+    .sidebar.collapsed .sb-item-label,
+    .sidebar.collapsed .sb-item-badge,
+    .sidebar.collapsed .sb-match,
+    .sidebar.collapsed .sb-footer-text { display: none; }
+
+    .sidebar.collapsed .sb-item { justify-content: center; padding: 8px 0; }
+    .sidebar.collapsed .collapse-icon { transform: rotate(180deg); }
+
+    /* ── Sidebar Header ─── */
     .sidebar-header {
       height: 52px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 16px;
+      padding: 0 14px;
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
 
     .sb-logo {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      text-decoration: none;
-      color: var(--text);
+      display: flex; align-items: center; gap: 9px;
+      text-decoration: none; color: var(--text);
+      overflow: hidden; white-space: nowrap;
     }
     .sb-logo-icon {
-      width: 28px; height: 28px;
-      background: var(--home);
-      border-radius: 6px;
+      width: 28px; height: 28px; flex-shrink: 0;
+      background: var(--home); border-radius: 6px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
-      flex-shrink: 0;
     }
-    .sb-logo-text {
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-    }
+    .sb-logo-icon svg { stroke: #fff; width: 15px; height: 15px; }
+    .sb-logo-text { font-size: 14px; font-weight: 700; letter-spacing: -0.3px; }
 
-    .sb-close {
-      display: none;
-      width: 28px; height: 28px;
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      color: var(--muted);
-      font-size: 13px;
-      cursor: pointer;
-      align-items: center; justify-content: center;
-      font-family: inherit;
+    .collapse-btn {
+      width: 26px; height: 26px; flex-shrink: 0;
+      background: none; border: 1px solid var(--border);
+      border-radius: var(--r); color: var(--dim); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-family: inherit; transition: all 0.12s;
     }
-    @media (max-width: 768px) { .sb-close { display: flex; } }
+    .collapse-btn:hover { background: var(--card); color: var(--muted); }
+    .collapse-icon { transition: transform 0.22s ease; }
 
-    /* ── Sidebar Body ───────────────────────────────── */
+    /* ── Sidebar Body ─── */
     .sidebar-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 0;
-      scrollbar-width: thin;
-      scrollbar-color: var(--border-md) transparent;
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      padding: 10px 0;
+      scrollbar-width: thin; scrollbar-color: var(--border-md) transparent;
     }
 
-    /* ── Match Card ─────────────────────────────────── */
+    /* ── Match Card ─── */
     .sb-match {
       margin: 0 10px 6px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r-lg);
-      padding: 14px 14px 12px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 12px 14px;
+      min-width: 180px;
     }
 
-    /* status badge — JS sets className 'match-status' ± 'finished' */
     .match-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.4px;
-      text-transform: uppercase;
-      color: var(--live);
-      margin-bottom: 12px;
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.4px; text-transform: uppercase;
+      color: var(--live); margin-bottom: 10px;
     }
     .match-status::before {
-      content: '';
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--live);
-      animation: pulse 2s infinite;
-      flex-shrink: 0;
+      content: ''; width: 6px; height: 6px;
+      border-radius: 50%; background: var(--live);
+      animation: pulse 2s infinite; flex-shrink: 0;
     }
-    .match-status.finished {
-      color: var(--danger);
-    }
-    .match-status.finished::before {
-      background: var(--danger);
-      animation: none;
-    }
+    .match-status.finished { color: var(--danger); }
+    .match-status.finished::before { background: var(--danger); animation: none; }
 
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-    .sb-teams {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
     .sb-team-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600; white-space: nowrap;
     }
     .sb-team-dot {
       width: 7px; height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0;
+      border-radius: 50%; flex-shrink: 0;
     }
     .sb-team-row.is-home .sb-team-dot { background: var(--home); }
     .sb-team-row.is-away .sb-team-dot { background: var(--away); }
     .sb-team-row.is-home .sb-team-name { color: var(--home); }
     .sb-team-row.is-away .sb-team-name { color: var(--away); }
-    .sb-team-name {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+    .sb-team-name { overflow: hidden; text-overflow: ellipsis; }
 
     .sb-score-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 8px 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 7px 0;
     }
     .sb-score {
-      font-size: 26px;
-      font-weight: 800;
-      letter-spacing: 3px;
-      color: var(--text);
+      font-size: 24px; font-weight: 800;
+      letter-spacing: 3px; color: var(--text);
       font-variant-numeric: tabular-nums;
     }
 
-    /* ── Navigation ─────────────────────────────────── */
-    .sb-group {
-      padding: 10px 10px 2px;
-    }
+    /* ── Nav Groups ─── */
+    .sb-group { padding: 8px 8px 2px; }
 
     .sb-group-label {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--dim);
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      padding: 0 8px 6px;
+      font-size: 10px; font-weight: 600;
+      color: var(--dim); letter-spacing: 0.8px;
+      text-transform: uppercase; padding: 0 8px 5px;
+      white-space: nowrap;
     }
 
     .sb-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 7px 10px;
-      border-radius: var(--r);
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 500;
-      text-decoration: none;
-      cursor: pointer;
-      transition: all 0.12s;
-      border: none;
-      background: none;
-      width: 100%;
-      text-align: left;
-      font-family: inherit;
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-radius: var(--r);
+      color: var(--muted); font-size: 13px; font-weight: 500;
+      text-decoration: none; cursor: pointer; transition: all 0.12s;
+      border: none; background: none; width: 100%;
+      text-align: left; font-family: inherit; white-space: nowrap;
     }
-    .sb-item:hover {
-      background: var(--card);
-      color: var(--text);
-    }
+    .sb-item:hover { background: var(--card); color: var(--text); }
     .sb-item.active {
-      background: var(--card);
-      color: var(--text);
-    }
-    .sb-item.analytics-trigger {
-      color: var(--home);
-    }
-    .sb-item.analytics-trigger:hover {
-      background: var(--home-bg);
-      color: var(--home);
+      background: var(--card); color: var(--text);
+      box-shadow: inset 3px 0 0 var(--home);
     }
 
     .sb-item-icon {
       width: 18px; height: 18px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
-      flex-shrink: 0;
-      opacity: 0.7;
+      flex-shrink: 0; opacity: 0.6;
     }
     .sb-item:hover .sb-item-icon,
     .sb-item.active .sb-item-icon { opacity: 1; }
 
-    .sb-item-badge {
-      margin-left: auto;
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--live);
-      background: var(--live-bg);
-      border-radius: 10px;
-      padding: 1px 7px;
-      border: 1px solid rgba(34,197,94,0.25);
-    }
+    .sb-sep { height: 1px; background: var(--border); margin: 6px 8px; }
 
-    .sb-sep {
-      height: 1px;
-      background: var(--border);
-      margin: 8px 10px;
+    /* ── Heat map toggle badge ─── */
+    .sb-toggle-badge {
+      margin-left: auto; flex-shrink: 0;
+      font-size: 9px; font-weight: 700;
+      padding: 2px 6px; border-radius: 3px;
+      background: var(--border); color: var(--dim);
+      letter-spacing: 0.6px; transition: all 0.15s;
     }
+    .sb-item.heatmap-on .sb-toggle-badge {
+      background: rgba(251,146,60,0.18);
+      color: #fb923c;
+    }
+    .sidebar.collapsed .sb-toggle-badge { display: none; }
 
-    /* ── Sidebar Footer ─────────────────────────────── */
+    /* ── Sidebar Footer ─── */
     .sidebar-footer {
-      padding: 10px;
-      border-top: 1px solid var(--border);
-      flex-shrink: 0;
+      padding: 10px; border-top: 1px solid var(--border); flex-shrink: 0;
     }
-
     .sb-footer-info {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 8px;
-      border-radius: var(--r);
-      background: var(--card);
-      border: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border-radius: var(--r);
+      background: var(--card); border: 1px solid var(--border);
+      overflow: hidden; white-space: nowrap;
     }
-    .sb-footer-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--live);
-      animation: pulse 2s infinite;
-      flex-shrink: 0;
+    .sb-live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--live); animation: pulse 2s infinite; flex-shrink: 0;
     }
-    .sb-footer-text {
-      font-size: 11px;
-      color: var(--muted);
-    }
+    .sb-footer-text { font-size: 11px; color: var(--muted); }
     .sb-footer-text strong { color: var(--text); font-weight: 600; }
 
-    /* ─────────────────────────────────────────────────────
+    /* ═══════════════════════════════════════════════════
        MOBILE BAR
-    ───────────────────────────────────────────────────── */
+    ═══════════════════════════════════════════════════ */
     .mobile-bar {
       display: none;
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      height: 48px;
-      background: rgba(9,9,11,0.92);
-      border-bottom: 1px solid var(--border);
-      backdrop-filter: blur(12px);
-      align-items: center;
-      gap: 12px;
-      padding: 0 14px;
-      z-index: 40;
+      position: fixed; top: 0; left: 0; right: 0; height: 48px;
+      background: rgba(9,9,11,0.92); border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px); align-items: center;
+      gap: 12px; padding: 0 14px; z-index: 40;
     }
-
     .hamburger {
-      width: 32px; height: 32px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      color: var(--muted);
-      font-size: 15px;
-      cursor: pointer;
+      width: 32px; height: 32px; background: var(--card);
+      border: 1px solid var(--border); border-radius: var(--r);
+      color: var(--muted); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      font-family: inherit;
-      flex-shrink: 0;
+      font-family: inherit; flex-shrink: 0;
     }
-    .mobile-score {
-      flex: 1;
-      text-align: center;
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 1px;
-    }
-
-    /* ── Sidebar Overlay (mobile backdrop) ──────────── */
+    .mobile-score { flex: 1; text-align: center; font-size: 14px; font-weight: 700; letter-spacing: 1px; }
     .sidebar-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.6);
-      z-index: 49;
-      backdrop-filter: blur(2px);
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6); z-index: 49; backdrop-filter: blur(2px);
+    }
+    .sb-close {
+      display: none; width: 26px; height: 26px;
+      background: none; border: 1px solid var(--border);
+      border-radius: var(--r); color: var(--muted); font-size: 12px;
+      cursor: pointer; align-items: center; justify-content: center;
+      font-family: inherit;
     }
 
-    /* ─────────────────────────────────────────────────────
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); transition: transform 0.22s ease; width: var(--sidebar-w) !important; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay { display: block; }
+      .main { margin-left: 0 !important; }
+      .mobile-bar { display: flex; }
+      .sb-close { display: flex; }
+      .collapse-btn { display: none; }
+    }
+
+    /* ═══════════════════════════════════════════════════
        MAIN CONTENT
-    ───────────────────────────────────────────────────── */
+    ═══════════════════════════════════════════════════ */
     .main {
       margin-left: var(--sidebar-w);
-      padding: 24px 20px 48px;
+      padding: 28px 24px 48px;
       min-height: 100vh;
+      transition: margin-left 0.22s ease;
     }
 
-    /* ── Section ────────────────────────────────────── */
-    .section { margin-bottom: 28px; }
+    /* ── Page system ─── */
+    .page { display: none; }
+    .page.active { display: block; }
 
+    /* ── Page Header ─── */
+    .page-header {
+      display: flex; align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 22px; padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-title { font-size: 18px; font-weight: 700; letter-spacing: -0.4px; }
+    .page-sub { font-size: 12px; color: var(--dim); margin-top: 3px; }
+
+    /* ── Section label ─── */
     .section-label {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--dim);
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      font-size: 10px; font-weight: 600; color: var(--dim);
+      letter-spacing: 1px; text-transform: uppercase;
+      margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
     }
     .section-label::after {
       content: ''; flex: 1; height: 1px; background: var(--border);
     }
 
-    /* ── Table Cards ────────────────────────────────── */
+    /* ── Table Cards ─── */
     .tables-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 12px;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; margin-bottom: 12px;
     }
     .tables-row.three-col { grid-template-columns: 1fr 1fr 1fr; }
 
     .table-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r-xl);
-      overflow: hidden;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r-xl); overflow: hidden;
     }
     .table-card.home  { border-color: var(--home-bdr); }
     .table-card.away  { border-color: var(--away-bdr); }
     .table-card.total { border-color: var(--total-bdr); }
 
     .table-card-header {
-      padding: 9px 14px;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.4px;
-      border-bottom: 1px solid var(--border);
+      padding: 9px 14px; font-size: 11px; font-weight: 600;
+      letter-spacing: 0.4px; border-bottom: 1px solid var(--border);
     }
     .home  .table-card-header { color: var(--home);  background: var(--home-bg);  border-bottom-color: var(--home-bdr); }
     .away  .table-card-header { color: var(--away);  background: var(--away-bg);  border-bottom-color: var(--away-bdr); }
@@ -435,7 +347,6 @@
 
     .table-scroll { overflow-x: auto; padding: 8px 6px; }
 
-    /* ── Score Tables ───────────────────────────────── */
     table { width: 100%; border-collapse: collapse; }
 
     th {
@@ -464,170 +375,147 @@
     .total td.active-cell { background: var(--total-bg); border: 1px solid var(--total); color: var(--total) !important; }
 
     td.empty-cell { color: rgba(255,255,255,0.06); }
-
     td.total-cell { color: rgba(255,255,255,0.18); }
     td.total-cell.has-score { color: var(--total); font-weight: 600; }
     td.total-cell.active-cell { background: var(--total-bg); border: 1px solid var(--total); color: var(--total) !important; }
 
-    /* ── Chart Cards ────────────────────────────────── */
-    .charts-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
+    /* ── Chart Cards ─── */
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
     .chart-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r-xl);
-      padding: 16px 16px 12px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r-xl); padding: 18px 18px 14px;
     }
     .chart-card.total-chart { border-color: var(--total-bdr); }
+
     .chart-label {
-      font-size: 10px; font-weight: 600;
-      color: var(--dim); letter-spacing: 0.8px;
-      text-transform: uppercase; margin-bottom: 12px;
+      font-size: 10px; font-weight: 600; color: var(--dim);
+      letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 14px;
     }
     .total-chart .chart-label { color: var(--total); }
 
-    /* ─────────────────────────────────────────────────────
-       ANALYTICS SIDE PANEL (right overlay)
-    ───────────────────────────────────────────────────── */
-    .side-panel {
-      position: fixed; inset: 0;
-      z-index: 200; display: none;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(4px);
+    /* ── Analytics Pages ─── */
+    .analytics-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      align-items: start;
     }
-    .side-panel.open { display: flex; justify-content: flex-end; }
 
-    .panel-inner {
-      width: min(580px, 96vw);
-      height: 100%;
-      background: var(--surface);
-      border-left: 1px solid var(--border);
-      display: flex; flex-direction: column;
-      animation: slideIn 0.2s ease;
-    }
-    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    .analytics-full { max-width: 700px; margin: 0 auto; }
 
-    .panel-header {
-      height: 52px;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-    }
-    .panel-title { font-size: 13px; font-weight: 600; }
-
-    .close-btn {
-      width: 30px; height: 30px;
+    .analytic-chart-card {
       background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--r); color: var(--muted); font-size: 13px;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      font-family: inherit; transition: all 0.12s;
-    }
-    .close-btn:hover { background: var(--card-hover); color: var(--text); }
-
-    .panel-body {
-      flex: 1; overflow-y: auto; padding: 20px;
-      scrollbar-width: thin; scrollbar-color: var(--border-md) transparent;
+      border-radius: var(--r-xl); padding: 20px;
     }
 
-    .panel-section { margin-bottom: 28px; }
-    .panel-section-label {
-      font-size: 10px; font-weight: 600; color: var(--dim);
-      letter-spacing: 1px; text-transform: uppercase;
-      padding-bottom: 8px; border-bottom: 1px solid var(--border);
-      margin-bottom: 14px;
+    .metric-cards {
+      display: flex; flex-direction: column; gap: 10px;
     }
 
-    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
-
-    .chart-panel {
+    .metric-card {
       background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--r-lg); padding: 12px 12px 8px;
+      border-radius: var(--r-lg); padding: 14px 16px;
+      display: flex; align-items: flex-start; gap: 12px;
     }
-    .chart-panel-title {
-      font-size: 10px; font-weight: 600; color: var(--dim);
-      letter-spacing: 0.5px; text-transform: uppercase;
-      text-align: center; margin-bottom: 10px;
+    .metric-icon {
+      width: 34px; height: 34px; flex-shrink: 0;
+      background: var(--home-bg); border: 1px solid var(--home-bdr);
+      border-radius: var(--r); display: flex; align-items: center; justify-content: center;
+      color: var(--home);
     }
+    .metric-icon svg { width: 16px; height: 16px; }
+    .metric-body { flex: 1; }
+    .metric-body strong { font-size: 12px; font-weight: 600; color: var(--text); display: block; margin-bottom: 3px; }
+    .metric-body span { font-size: 11px; color: var(--dim); line-height: 1.5; }
 
-    .metric-guide { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .guide-item {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--r); padding: 10px;
-      display: flex; align-items: flex-start; gap: 8px;
-    }
-    .guide-icon { font-size: 15px; flex-shrink: 0; }
-    .guide-text { display: flex; flex-direction: column; gap: 2px; }
-    .guide-text strong { font-size: 11px; color: var(--text); font-weight: 600; }
-    .guide-text span { font-size: 10px; color: var(--dim); line-height: 1.45; }
-
+    /* ── Stats Page ─── */
     .stats-col-header {
       display: flex; justify-content: space-between; align-items: center;
-      padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border);
+      padding-bottom: 12px; margin-bottom: 12px;
+      border-bottom: 1px solid var(--border);
     }
-    .s-col-home { color: var(--home); font-weight: 700; font-size: 13px; }
-    .s-col-mid  { color: var(--dim);  font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; }
-    .s-col-away { color: var(--away); font-weight: 700; font-size: 13px; }
+    .s-col-home { color: var(--home); font-weight: 700; font-size: 14px; }
+    .s-col-mid  { color: var(--dim); font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .s-col-away { color: var(--away); font-weight: 700; font-size: 14px; }
 
-    .stats-sections { display: flex; flex-direction: column; gap: 14px; }
+    .stats-sections { display: flex; flex-direction: column; gap: 16px; }
+
     .stats-section-title {
       font-size: 10px; font-weight: 600; color: var(--dim);
-      letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 5px;
+      letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px;
     }
     .stats-table { width: 100%; border-collapse: collapse; }
-    .stats-table td { padding: 4px 3px; font-size: 12px; border: none; background: transparent; color: var(--muted); }
+    .stats-table td { padding: 5px 4px; font-size: 12px; border: none; background: transparent; color: var(--muted); }
     .stats-table td.s-home { text-align: right; font-weight: 600; color: var(--home); width: 26%; }
     .stats-table td.s-name { text-align: center; color: var(--dim); width: 48%; font-size: 11px; }
     .stats-table td.s-away { text-align: left;  font-weight: 600; color: var(--away); width: 26%; }
     .stats-table tr:hover td { background: rgba(255,255,255,0.02); }
 
-    .no-stats { color: var(--dim); text-align: center; font-style: italic; padding: 24px; font-size: 12px; }
+    .no-stats { color: var(--dim); text-align: center; font-style: italic; padding: 32px; font-size: 12px; }
 
-    /* keep for JS compat */
-    .back-link { display: none; }
-
-    /* ── Responsive ─────────────────────────────────── */
+    /* ── Responsive ─── */
     @media (max-width: 960px) {
       .tables-row { grid-template-columns: 1fr; }
       .tables-row.three-col { grid-template-columns: 1fr; }
       .charts-row { grid-template-columns: 1fr; }
+      .analytics-layout { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
-      .charts-grid { grid-template-columns: 1fr; }
-      .metric-guide { grid-template-columns: 1fr; }
-      .main { padding-top: 60px; }
+      .main { padding: 60px 14px 40px; }
     }
+
+    /* hidden compat elements for analysis.js */
+    .js-compat { display: none !important; }
+    .back-link  { display: none; }
   </style>
 </head>
 <body>
 
-  <!-- ── Mobile Bar (hamburger) ──────────────────────── -->
+  <!-- ── Mobile Bar ──────────────────────────────────── -->
   <div class="mobile-bar">
-    <button class="hamburger" id="hamburgerBtn">☰</button>
+    <button class="hamburger" id="hamburgerBtn">
+      <svg class="icon" width="16" height="16" viewBox="0 0 24 24">
+        <line x1="4" x2="20" y1="6"  y2="6"/>
+        <line x1="4" x2="20" y1="12" y2="12"/>
+        <line x1="4" x2="20" y1="18" y2="18"/>
+      </svg>
+    </button>
     <div class="mobile-score" id="mobileScore">– : –</div>
   </div>
 
-  <!-- ── Sidebar Overlay (mobile backdrop) ───────────── -->
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <!-- ═════════════════════════════════════════════════
+       SIDEBAR
+  ═════════════════════════════════════════════════ -->
   <aside class="sidebar" id="appSidebar">
 
+    <!-- Header -->
     <div class="sidebar-header">
       <a href="/" class="sb-logo">
-        <div class="sb-logo-icon">🏀</div>
+        <div class="sb-logo-icon">
+          <svg class="icon" viewBox="0 0 24 24">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
         <span class="sb-logo-text">BasketScrape</span>
       </a>
+      <button class="collapse-btn" id="collapseBtn" title="Daralt / Genişlet">
+        <svg class="icon collapse-icon" width="14" height="14" viewBox="0 0 24 24">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+      </button>
       <button class="sb-close" id="sidebarClose">✕</button>
     </div>
 
+    <!-- Body -->
     <div class="sidebar-body">
 
-      <!-- Match info card -->
+      <!-- Match Card -->
       <div class="sb-match">
         <div class="match-status" id="matchStatus">Bağlanıyor...</div>
-        <div class="sb-teams">
+        <div>
           <div class="sb-team-row is-home">
             <div class="sb-team-dot"></div>
             <span class="sb-team-name" id="homeName">Ev Sahibi</span>
@@ -642,56 +530,153 @@
         </div>
       </div>
 
-      <!-- Navigation -->
+      <!-- Canlı Veri -->
       <div class="sb-group">
-        <div class="sb-group-label">Navigasyon</div>
+        <div class="sb-group-label">Canlı Veri</div>
 
-        <a class="sb-item" href="#section-tables">
-          <span class="sb-item-icon">📊</span>
-          Skor Tabloları
-        </a>
-        <a class="sb-item" href="#section-x40">
-          <span class="sb-item-icon">📐</span>
-          ×40 Normalize
-        </a>
-        <a class="sb-item" href="#section-charts">
-          <span class="sb-item-icon">📈</span>
-          Grafikler
-        </a>
+        <button class="sb-item active" data-page="page-tables">
+          <span class="sb-item-icon">
+            <svg class="icon" width="16" height="16" viewBox="0 0 24 24">
+              <rect width="18" height="18" x="3" y="3" rx="2"/>
+              <path d="M3 9h18M3 15h18M9 3v18"/>
+            </svg>
+          </span>
+          <span class="sb-item-label">Skor Tabloları</span>
+        </button>
+
+        <button class="sb-item" data-page="page-charts">
+          <span class="sb-item-icon">
+            <svg class="icon" width="16" height="16" viewBox="0 0 24 24">
+              <path d="M3 3v18h18"/>
+              <path d="m7 16 4-4 4 4 4-6"/>
+            </svg>
+          </span>
+          <span class="sb-item-label">Grafikler</span>
+        </button>
       </div>
 
       <div class="sb-sep"></div>
 
+      <!-- Analiz -->
       <div class="sb-group">
-        <div class="sb-group-label">Araçlar</div>
+        <div class="sb-group-label">Analiz</div>
 
-        <!-- menuBtn açısı korunuyor — analysis.js bu id'yi dinliyor -->
-        <button class="sb-item analytics-trigger" id="menuBtn">
-          <span class="sb-item-icon">🔍</span>
-          Analiz Paneli
-          <span class="sb-item-badge">→</span>
+        <button class="sb-item" data-page="page-four-factors">
+          <span class="sb-item-icon">
+            <svg class="icon" width="16" height="16" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="22" x2="18" y1="12" y2="12"/>
+              <line x1="6"  x2="2"  y1="12" y2="12"/>
+              <line x1="12" x2="12" y1="6"  y2="2"/>
+              <line x1="12" x2="12" y1="22" y2="18"/>
+            </svg>
+          </span>
+          <span class="sb-item-label">Four Factors</span>
+        </button>
+
+        <button class="sb-item" data-page="page-efficiency">
+          <span class="sb-item-icon">
+            <svg class="icon" width="16" height="16" viewBox="0 0 24 24">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6"  y1="20" x2="6"  y2="14"/>
+            </svg>
+          </span>
+          <span class="sb-item-label">Verimlilik</span>
+        </button>
+
+        <button class="sb-item" data-page="page-shots">
+          <span class="sb-item-icon">
+            <svg class="icon" width="16" height="16" viewBox="0 0 24 24">
+              <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+              <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+            </svg>
+          </span>
+          <span class="sb-item-label">Şut Dağılımı</span>
+        </button>
+
+        <button class="sb-item" data-page="page-possession">
+          <span class="sb-item-icon">
+            <svg class="icon" width="16" height="16" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="4"/>
+              <line x1="4.93"  x2="9.17"  y1="4.93"  y2="9.17"/>
+              <line x1="14.83" x2="19.07" y1="14.83" y2="19.07"/>
+              <line x1="14.83" x2="19.07" y1="9.17"  y2="4.93"/>
+              <line x1="14.83" x2="18.36" y1="9.17"  y2="5.64"/>
+              <line x1="4.93"  x2="9.17"  y1="19.07" y2="14.83"/>
+            </svg>
+          </span>
+          <span class="sb-item-label">Possession</span>
+        </button>
+      </div>
+
+      <div class="sb-sep"></div>
+
+      <!-- Detay -->
+      <div class="sb-group">
+        <div class="sb-group-label">Detay</div>
+
+        <button class="sb-item" data-page="page-stats">
+          <span class="sb-item-icon">
+            <svg class="icon" width="16" height="16" viewBox="0 0 24 24">
+              <line x1="8"  x2="21" y1="6"  y2="6"/>
+              <line x1="8"  x2="21" y1="12" y2="12"/>
+              <line x1="8"  x2="21" y1="18" y2="18"/>
+              <line x1="3"  x2="3.01" y1="6"  y2="6"/>
+              <line x1="3"  x2="3.01" y1="12" y2="12"/>
+              <line x1="3"  x2="3.01" y1="18" y2="18"/>
+            </svg>
+          </span>
+          <span class="sb-item-label">İstatistikler</span>
+        </button>
+      </div>
+
+      <div class="sb-sep"></div>
+
+      <!-- Görünüm -->
+      <div class="sb-group">
+        <div class="sb-group-label">Görünüm</div>
+
+        <button class="sb-item" id="heatmapToggle">
+          <span class="sb-item-icon">
+            <svg class="icon" width="16" height="16" viewBox="0 0 24 24">
+              <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+            </svg>
+          </span>
+          <span class="sb-item-label">Isı Haritası</span>
+          <span class="sb-toggle-badge" id="heatmapBadge">OFF</span>
         </button>
       </div>
 
     </div>
 
+    <!-- Footer -->
     <div class="sidebar-footer">
       <div class="sb-footer-info">
-        <div class="sb-footer-dot"></div>
+        <div class="sb-live-dot"></div>
         <span class="sb-footer-text"><strong>Flashscore</strong> · Canlı</span>
       </div>
     </div>
 
   </aside>
 
-  <!-- ── Main Content ─────────────────────────────────── -->
-  <main class="main">
+  <!-- ═════════════════════════════════════════════════
+       MAIN CONTENT
+  ═════════════════════════════════════════════════ -->
+  <main class="main" id="mainContent">
 
-    <!-- Skor Tabloları -->
-    <div class="section" id="section-tables">
-      <div class="section-label">Dakika Bazlı Skor</div>
-      <div class="tables-row">
+    <!-- ── Sayfa 1: Skor Tabloları + ×40 ────────────── -->
+    <div class="page active" id="page-tables">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Skor Tabloları</div>
+          <div class="page-sub">Dakika bazlı gerçek skor ve ×40 normalize dağılımı</div>
+        </div>
+      </div>
 
+      <div class="section-label">Gerçek Skor</div>
+      <div class="tables-row" style="margin-bottom:20px">
         <div class="table-card home">
           <div class="table-card-header" id="homeTitle">Ev Sahibi</div>
           <div class="table-scroll">
@@ -705,7 +690,6 @@
             </table>
           </div>
         </div>
-
         <div class="table-card away">
           <div class="table-card-header" id="awayTitle">Deplasman</div>
           <div class="table-scroll">
@@ -719,15 +703,10 @@
             </table>
           </div>
         </div>
-
       </div>
-    </div>
 
-    <!-- ×40 Tabloları -->
-    <div class="section" id="section-x40">
-      <div class="section-label">Tempo Normalize (×40 dakika)</div>
+      <div class="section-label">×40 Normalize</div>
       <div class="tables-row three-col">
-
         <div class="table-card home">
           <div class="table-card-header" id="homeTitle40">Ev Sahibi (×40)</div>
           <div class="table-scroll">
@@ -769,174 +748,340 @@
             </table>
           </div>
         </div>
-
       </div>
     </div>
 
-    <!-- Grafikler -->
-    <div class="section" id="section-charts">
-      <div class="section-label">Performans Grafikleri</div>
+    <!-- ── Sayfa 3: Grafikler ─────────────────────────── -->
+    <div class="page" id="page-charts">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Performans Grafikleri</div>
+          <div class="page-sub">Dakika bazlı skor ve tempo grafiği</div>
+        </div>
+      </div>
+
       <div class="charts-row">
         <div class="chart-card">
           <div class="chart-label">Dakika Başına Atılan Sayı</div>
-          <canvas id="scoreChart" height="110"></canvas>
+          <canvas id="scoreChart" height="120"></canvas>
         </div>
         <div class="chart-card total-chart">
           <div class="chart-label">Toplam (×40) — Dakika Başına</div>
-          <canvas id="totalChart" height="110"></canvas>
+          <canvas id="totalChart" height="120"></canvas>
         </div>
       </div>
+    </div>
+
+    <!-- ── Sayfa 4: Four Factors ──────────────────────── -->
+    <div class="page" id="page-four-factors">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Four Factors</div>
+          <div class="page-sub">Dean Oliver'ın dört temel başarı faktörü</div>
+        </div>
+      </div>
+
+      <div class="analytics-layout">
+        <div class="analytic-chart-card">
+          <canvas id="radarChart"></canvas>
+        </div>
+        <div class="metric-cards">
+          <div class="metric-card">
+            <div class="metric-icon">
+              <svg class="icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/>
+                <circle cx="12" cy="12" r="6"/>
+                <circle cx="12" cy="12" r="2"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <strong>eFG% — Etkili Şut Yüzdesi</strong>
+              <span>3'lük isabetler 1,5 kat değerli sayıldığında atış başarısı. Yüksek olan takım şut seçimini daha iyi yapıyor.</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="m21 16-4 4-4-4"/><path d="M17 20V4"/>
+                <path d="m3 8 4-4 4 4"/><path d="M7 4v16"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <strong>TOV% — Top Kaybı Oranı (Ters)</strong>
+              <span>Grafikteki değer yüksek = top kaybı az = iyi. Her atış fırsatının kaçta kaçını boşa harcıyor?</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <strong>ORB% — Hücum Ribaundu</strong>
+              <span>Isabetsiz şutlardan kaçını geri kapıyorlar? Yüksekse ikinci şans üretiyor.</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/>
+                <path d="M7 7h.01"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <strong>FTR — Serbest Atış Oranı</strong>
+              <span>Her alan şutuna karşılık kaç serbest atış? Yüksekse hem kolay sayı hem rakip faulde tutuyor.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Sayfa 5: Verimlilik ────────────────────────── -->
+    <div class="page" id="page-efficiency">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Verimlilik Puanı</div>
+          <div class="page-sub">100 hücum başına üretilen / yenilen sayı (×100 rating)</div>
+        </div>
+      </div>
+
+      <div class="analytics-layout">
+        <div class="analytic-chart-card">
+          <canvas id="rtgBarChart"></canvas>
+        </div>
+        <div class="metric-cards">
+          <div class="metric-card">
+            <div class="metric-icon">
+              <svg class="icon" viewBox="0 0 24 24">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6"  y1="20" x2="6"  y2="14"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <strong>OffRtg — Hücum Puanı</strong>
+              <span>100 hücumda kaç sayı üretiliyor? 110+ çok iyi seviyedir.</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <strong>DefRtg — Savunma Puanı</strong>
+              <span>100 rakip hücumunda kaç sayı yeniliyor? Düşük olan takım savunmada daha iyi.</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                <path d="M7 21H17"/><path d="M12 3v18"/>
+                <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <strong>NetRtg — Net Puan</strong>
+              <span>OffRtg eksi DefRtg. Pozitif = maçta baskın, negatif = geride. En özet metrik.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Sayfa 6: Şut Dağılımı ──────────────────────── -->
+    <div class="page" id="page-shots">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Şut Türü Dağılımı</div>
+          <div class="page-sub">2'lik, 3'lük ve serbest atış kırılımı</div>
+        </div>
+      </div>
+
+      <div class="analytics-full">
+        <div class="analytic-chart-card">
+          <canvas id="shotChart" height="160"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Sayfa 7: Possession ────────────────────────── -->
+    <div class="page" id="page-possession">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Possession Payı</div>
+          <div class="page-sub">Toplam hücum sırasından her takımın aldığı pay</div>
+        </div>
+      </div>
+
+      <div class="analytics-full">
+        <div class="analytic-chart-card">
+          <canvas id="possChart" height="280"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Sayfa 8: İstatistikler ─────────────────────── -->
+    <div class="page" id="page-stats">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Maç İstatistikleri</div>
+          <div class="page-sub">Flashscore'dan çekilen ham istatistik verileri</div>
+        </div>
+      </div>
+
+      <div id="panelStats"><p class="no-stats">İstatistikler bekleniyor...</p></div>
     </div>
 
   </main>
 
-  <!-- ── Analytics Side Panel (right overlay) ─────────── -->
-  <div id="sidePanel" class="side-panel">
-    <div class="panel-inner">
-
-      <div class="panel-header">
-        <span class="panel-title">Analiz &amp; İstatistikler</span>
-        <button id="closePanelBtn" class="close-btn" title="Kapat">✕</button>
-      </div>
-
-      <div class="panel-body">
-
-        <div class="charts-grid">
-          <div class="chart-panel">
-            <div class="chart-panel-title">Four Factors</div>
-            <canvas id="radarChart"></canvas>
-          </div>
-          <div class="chart-panel">
-            <div class="chart-panel-title">Verimlilik (×100)</div>
-            <canvas id="rtgBarChart"></canvas>
-          </div>
-          <div class="chart-panel">
-            <div class="chart-panel-title">Şut Dağılımı</div>
-            <canvas id="shotChart"></canvas>
-          </div>
-          <div class="chart-panel">
-            <div class="chart-panel-title">Possession Payı</div>
-            <canvas id="possChart"></canvas>
-          </div>
-        </div>
-
-        <div class="panel-section">
-          <div class="panel-section-label">Metrik Açıklamaları</div>
-          <div class="metric-guide">
-            <div class="guide-item">
-              <div class="guide-icon">🎯</div>
-              <div class="guide-text">
-                <strong>eFG%</strong>
-                <span>3'lükler daha değerli sayıldığında atış başarısı. Yüksek = iyi şut seçimi.</span>
-              </div>
-            </div>
-            <div class="guide-item">
-              <div class="guide-icon">🔄</div>
-              <div class="guide-text">
-                <strong>TOV% (Ters)</strong>
-                <span>Grafikte yüksek = top kaybı az = iyi.</span>
-              </div>
-            </div>
-            <div class="guide-item">
-              <div class="guide-icon">💪</div>
-              <div class="guide-text">
-                <strong>ORB%</strong>
-                <span>Isabetsiz şutlardan kaçını geri kapıyor?</span>
-              </div>
-            </div>
-            <div class="guide-item">
-              <div class="guide-icon">🆓</div>
-              <div class="guide-text">
-                <strong>FTR</strong>
-                <span>Her alan şutuna kaç serbest atış?</span>
-              </div>
-            </div>
-            <div class="guide-item">
-              <div class="guide-icon">📊</div>
-              <div class="guide-text">
-                <strong>OffRtg / DefRtg</strong>
-                <span>100 hücumda atılan / yenilen sayı.</span>
-              </div>
-            </div>
-            <div class="guide-item">
-              <div class="guide-icon">⚖️</div>
-              <div class="guide-text">
-                <strong>NetRtg</strong>
-                <span>Hücum eksi savunma. Pozitif = baskın.</span>
-              </div>
-            </div>
-            <div class="guide-item">
-              <div class="guide-icon">🏀</div>
-              <div class="guide-text">
-                <strong>Possession Payı</strong>
-                <span>Toplam hücum sırasından alınan pay.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel-section">
-          <div class="panel-section-label">Maç İstatistikleri</div>
-          <div id="panelStats"><p class="no-stats">İstatistikler bekleniyor...</p></div>
-        </div>
-
-      </div>
-    </div>
+  <!-- ── JS compat: analysis.js bu ID'leri arıyor ─────── -->
+  <div class="js-compat" id="sidePanel">
+    <button id="menuBtn"></button>
+    <button id="closePanelBtn"></button>
   </div>
-
-  <!-- hidden — JS compat -->
   <a href="/" class="back-link">← Geri</a>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="analysis.js"></script>
 
-  <!-- Sidebar toggle (mobile) + nav smooth scroll -->
   <script>
-    const sidebar      = document.getElementById('appSidebar');
+    /* ── Sidebar collapse ───────────────────────────── */
+    const sidebar     = document.getElementById('appSidebar');
+    const collapseBtn = document.getElementById('collapseBtn');
+    const mainEl      = document.getElementById('mainContent');
+    let   collapsed   = false;
+
+    collapseBtn.addEventListener('click', () => {
+      collapsed = !collapsed;
+      sidebar.classList.toggle('collapsed', collapsed);
+      document.documentElement.style.setProperty('--sidebar-w', collapsed ? '64px' : '256px');
+    });
+
+    /* ── Mobile sidebar ─────────────────────────────── */
     const overlay      = document.getElementById('sidebarOverlay');
     const hamburger    = document.getElementById('hamburgerBtn');
     const sbClose      = document.getElementById('sidebarClose');
     const mobileScore  = document.getElementById('mobileScore');
     const scoreDisplay = document.getElementById('scoreDisplay');
 
-    function openSidebar()  { sidebar.classList.add('open');  overlay.style.display = 'block'; }
+    function openSidebar()  { sidebar.classList.add('open');    overlay.style.display = 'block'; }
     function closeSidebar() { sidebar.classList.remove('open'); overlay.style.display = 'none'; }
 
     hamburger.addEventListener('click', openSidebar);
     sbClose.addEventListener('click', closeSidebar);
     overlay.addEventListener('click', closeSidebar);
 
-    // Reflect score in mobile bar
-    const scoreObserver = new MutationObserver(() => {
-      mobileScore.textContent = scoreDisplay.textContent;
+    new MutationObserver(() => { mobileScore.textContent = scoreDisplay.textContent; })
+      .observe(scoreDisplay, { childList: true, characterData: true, subtree: true });
+
+    /* ── Page switching ─────────────────────────────── */
+    const chartPages = new Set(['page-charts','page-four-factors','page-efficiency','page-shots','page-possession']);
+
+    function switchPage(pageId) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.sb-item[data-page]').forEach(i => i.classList.remove('active'));
+
+      const page = document.getElementById(pageId);
+      if (page) page.classList.add('active');
+
+      const navBtn = document.querySelector(`.sb-item[data-page="${pageId}"]`);
+      if (navBtn) navBtn.classList.add('active');
+
+      if (chartPages.has(pageId)) {
+        requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      }
+
+      if (window.innerWidth <= 768) closeSidebar();
+    }
+
+    document.querySelectorAll('.sb-item[data-page]').forEach(btn => {
+      btn.addEventListener('click', () => switchPage(btn.dataset.page));
     });
-    scoreObserver.observe(scoreDisplay, { childList: true, characterData: true, subtree: true });
 
-    // Close sidebar on nav link click (mobile)
-    document.querySelectorAll('.sb-item[href]').forEach(link => {
-      link.addEventListener('click', () => {
-        if (window.innerWidth <= 768) closeSidebar();
+    /* ── Isı Haritası ───────────────────────────────── */
+    let heatmapEnabled = false;
+
+    // Her tbody için hangi RGB rengi kullanılacak
+    const HEAT_COLORS = {
+      homeTbody:   [129, 140, 248],   // indigo  (home)
+      awayTbody:   [251, 113, 133],   // rose    (away)
+      homeTbody40: [129, 140, 248],   // indigo  (home ×40)
+      awayTbody40: [251, 113, 133],   // rose    (away ×40)
+      totalTbody:  [ 52, 211, 153],   // emerald (total ×40)
+    };
+
+    function applyHeatToTable(tbodyId) {
+      const tbody = document.getElementById(tbodyId);
+      if (!tbody) return;
+
+      const [r, g, b] = HEAT_COLORS[tbodyId];
+      const cells = [...tbody.querySelectorAll('td:not(.period-label)')];
+      const values = cells.map(td => parseFloat(td.textContent) || 0);
+      const max = Math.max(...values, 1);
+
+      cells.forEach((td, i) => {
+        const val = values[i];
+        if (val > 0) {
+          const t = val / max;             // 0..1 yoğunluk
+          const alpha = 0.18 + t * 0.67;  // 0.18 → 0.85
+          td.style.background = `rgba(${r},${g},${b},${alpha.toFixed(2)})`;
+          td.style.color      = t > 0.55 ? '#fff' : `rgba(${r},${g},${b},0.95)`;
+          td.style.fontWeight = t > 0.7 ? '700' : '';
+        } else {
+          td.style.background = '';
+          td.style.color      = '';
+          td.style.fontWeight = '';
+        }
       });
+    }
+
+    function applyHeatmap() {
+      Object.keys(HEAT_COLORS).forEach(id => applyHeatToTable(id));
+    }
+
+    function clearHeatmap() {
+      Object.keys(HEAT_COLORS).forEach(tbodyId => {
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        tbody.querySelectorAll('td:not(.period-label)').forEach(td => {
+          td.style.background = '';
+          td.style.color      = '';
+          td.style.fontWeight = '';
+        });
+      });
+    }
+
+    // Tbodylarda içerik değişince heatmap'i yenile
+    Object.keys(HEAT_COLORS).forEach(tbodyId => {
+      const el = document.getElementById(tbodyId);
+      if (!el) return;
+      new MutationObserver(() => {
+        if (heatmapEnabled) applyHeatToTable(tbodyId);
+      }).observe(el, { childList: true, subtree: true });
     });
 
-    // Active nav item highlight on scroll
-    const sections = [
-      { id: 'section-tables', link: document.querySelector('.sb-item[href="#section-tables"]') },
-      { id: 'section-x40',    link: document.querySelector('.sb-item[href="#section-x40"]') },
-      { id: 'section-charts', link: document.querySelector('.sb-item[href="#section-charts"]') },
-    ];
+    const heatmapToggle = document.getElementById('heatmapToggle');
+    const heatmapBadge  = document.getElementById('heatmapBadge');
 
-    const io = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        const sec = sections.find(s => s.id === entry.target.id);
-        if (sec) sec.link.classList.toggle('active', entry.isIntersecting);
-      });
-    }, { threshold: 0.25 });
-
-    sections.forEach(s => {
-      const el = document.getElementById(s.id);
-      if (el) io.observe(el);
+    heatmapToggle.addEventListener('click', () => {
+      heatmapEnabled = !heatmapEnabled;
+      heatmapToggle.classList.toggle('heatmap-on', heatmapEnabled);
+      heatmapBadge.textContent = heatmapEnabled ? 'ON' : 'OFF';
+      if (heatmapEnabled) {
+        applyHeatmap();
+        // Tablo sayfasında değilse oraya götür
+        const activePage = document.querySelector('.page.active');
+        if (!activePage || activePage.id !== 'page-tables') switchPage('page-tables');
+      } else {
+        clearHeatmap();
+      }
     });
   </script>
 </body>
