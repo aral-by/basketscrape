@@ -203,54 +203,103 @@ function computeMetrics(sections, homeName, awayName, homeScore, awayScore) {
   const flat = flatStats(sections);
   console.log('[basketscrape] Stat isimleri:', Object.keys(flat));
 
-  // 2'lik ve 3'lük ayrı ara; FG toplamı = 2P + 3P
-  const fg2 = findStat(flat, 'iki say', '2 say', '2-say', 'alan gol', 'sahadan', 'field goal', 'fg');
-  const fg3 = findStat(flat, 'üç say', '3 say', 'üçlük', '3-say', 'three', 'üç sayılık');
-  const ft  = findStat(flat, 'serbest atış', 'free throw', 'serbest');
-  const orb = findStat(flat, 'hücum rib', 'ofansif r', 'off reb', 'hücum ribaund');
-  const drb = findStat(flat, 'savunma rib', 'defansif r', 'def reb', 'savunma ribaund');
-  const tov = findStat(flat, 'top kayb', 'turnover', 'kayıp');
+  // Flashscore'da "Alan Golü" = toplam FG (2P+3P birlikte), 2P ayrı gelmez.
+  // totalFg → alan golü / field goal (toplam)
+  // fg2only → yalnızca "iki sayılık" gibi açık 2P stat varsa kullanılır
+  const totalFg = findStat(flat, 'alan gol', 'sahadan', 'field goal');
+  const fg2only = findStat(flat, 'iki say', '2 say', '2-say', 'iki sayılık');
+  const fg3     = findStat(flat, 'üç say', '3 say', 'üçlük', '3-say', 'three', 'üç sayılık');
+  const ft      = findStat(flat, 'serbest atış', 'free throw', 'serbest');
+  const orb     = findStat(flat, 'hücum rib', 'ofansif r', 'off reb', 'hücum ribaund');
+  const drb     = findStat(flat, 'savunma rib', 'defansif r', 'def reb', 'savunma ribaund');
+  const tov     = findStat(flat, 'top kayb', 'turnover', 'kayıp');
+  const ast     = findStat(flat, 'asist', 'assist');
 
-  console.log('[basketscrape] Eşleşme → fg2:', fg2, 'fg3:', fg3, 'ft:', ft, 'orb:', orb, 'drb:', drb, 'tov:', tov);
+  console.log('[basketscrape] Eşleşme → totalFg:', totalFg, 'fg3:', fg3, 'ft:', ft, 'orb:', orb, 'drb:', drb, 'tov:', tov);
+
+  // FG kaynağını çöz: totalFg eşleştiyse 2P = total − 3P, yoksa fg2only + fg3 kullan
+  function resolveFg(side) {
+    const tot = totalFg[side];
+    const two = fg2only[side];
+    const thr = fg3[side];
+    if (tot.att > 0 && tot.att >= thr.att) {
+      // Flashscore toplam FG verdi → 2P'yi türet
+      return {
+        fgm: tot.made,
+        fga: tot.att,
+        fg2m: Math.max(0, tot.made - thr.made),
+        fg2a: Math.max(0, tot.att  - thr.att),
+        fg3m: thr.made,
+        fg3a: thr.att,
+      };
+    }
+    // Açık 2P + 3P verisi var
+    return {
+      fgm: two.made + thr.made,
+      fga: two.att  + thr.att,
+      fg2m: two.made,
+      fg2a: two.att,
+      fg3m: thr.made,
+      fg3a: thr.att,
+    };
+  }
+
+  const hFg = resolveFg('home');
+  const aFg = resolveFg('away');
 
   const h = {
-    fg2: fg2.home, fg3: fg3.home, ft: ft.home, orb: orb.home, drb: drb.home, tov: tov.home,
-    fgMade: fg2.home.made + fg3.home.made,
-    fgAtt:  fg2.home.att  + fg3.home.att,
+    ...hFg,
+    ftm: ft.home.made,  fta: ft.home.att,
+    orb: orb.home.made, drb: drb.home.made,
+    tov: tov.home.made, ast: ast.home.made,
+    pts: homeScore || 0,
   };
   const a = {
-    fg2: fg2.away, fg3: fg3.away, ft: ft.away, orb: orb.away, drb: drb.away, tov: tov.away,
-    fgMade: fg2.away.made + fg3.away.made,
-    fgAtt:  fg2.away.att  + fg3.away.att,
+    ...aFg,
+    ftm: ft.away.made,  fta: ft.away.att,
+    orb: orb.away.made, drb: drb.away.made,
+    tov: tov.away.made, ast: ast.away.made,
+    pts: awayScore || 0,
   };
 
-  const hFGA = h.fgAtt || 1;
-  const aFGA = a.fgAtt || 1;
+  const hFGA = h.fga || 1;
+  const aFGA = a.fga || 1;
 
-  const heFG     = safe((h.fgMade + 0.5 * h.fg3.made) / hFGA);
-  const aeFG     = safe((a.fgMade + 0.5 * a.fg3.made) / aFGA);
-  const hTOVpct  = safe(h.tov.made / ((hFGA + 0.44 * h.ft.att + h.tov.made) || 1));
-  const aTOVpct  = safe(a.tov.made / ((aFGA + 0.44 * a.ft.att + a.tov.made) || 1));
-  const hORBpct  = safe(h.orb.made / ((h.orb.made + a.drb.made) || 1));
-  const aORBpct  = safe(a.orb.made / ((a.orb.made + h.drb.made) || 1));
-  const hFTR     = safe(h.ft.att / hFGA);
-  const aFTR     = safe(a.ft.att / aFGA);
+  // ── Dean Oliver Four Factors ──────────────────────────────────────────
+  // 1) eFG% = (FGM + 0.5 × 3PM) / FGA
+  const heFG = safe((h.fgm + 0.5 * h.fg3m) / hFGA);
+  const aeFG = safe((a.fgm + 0.5 * a.fg3m) / aFGA);
 
-  const hPoss    = Math.max(0, hFGA - h.orb.made + h.tov.made + 0.44 * h.ft.att);
-  const aPoss    = Math.max(0, aFGA - a.orb.made + a.tov.made + 0.44 * a.ft.att);
+  // 2) TOV% = TOV / (FGA + 0.44×FTA + TOV)   [grafik: 1−TOV%, yüksek=iyi]
+  const hTOVpct = safe(h.tov / ((hFGA + 0.44 * h.fta + h.tov) || 1));
+  const aTOVpct = safe(a.tov / ((aFGA + 0.44 * a.fta + a.tov) || 1));
 
-  const hPts     = homeScore || 0;
-  const aPts     = awayScore || 0;
-  const hOffRtg  = safe(hPoss > 0 ? 100 * hPts / hPoss : 0);
-  const aOffRtg  = safe(aPoss > 0 ? 100 * aPts / aPoss : 0);
-  const hDefRtg  = safe(aPoss > 0 ? 100 * aPts / aPoss : 0);
-  const aDefRtg  = safe(hPoss > 0 ? 100 * hPts / hPoss : 0);
+  // 3) ORB% = ORB / (ORB + opp_DRB)
+  const hORBpct = safe(h.orb / ((h.orb + a.drb) || 1));
+  const aORBpct = safe(a.orb / ((a.orb + h.drb) || 1));
 
-  // Şut dağılımı için 2'lik değerleri doğrudan fg2'den al
-  const h2pm = Math.max(0, h.fg2.made);
-  const h2pa = Math.max(0, h.fg2.att);
-  const a2pm = Math.max(0, a.fg2.made);
-  const a2pa = Math.max(0, a.fg2.att);
+  // 4) FTR = FTA / FGA  (Dean Oliver orijinal)
+  const hFTR = safe(h.fta / hFGA);
+  const aFTR = safe(a.fta / aFGA);
+
+  // ── True Shooting % ───────────────────────────────────────────────────
+  // TS% = PTS / (2 × (FGA + 0.44 × FTA))   — eFG%'den kapsamlı, SA dahil
+  const hTS = safe(h.pts / (2 * ((hFGA + 0.44 * h.fta) || 1)));
+  const aTS = safe(a.pts / (2 * ((aFGA + 0.44 * a.fta) || 1)));
+
+  // ── Possession (Oliver formülü) ───────────────────────────────────────
+  // Poss = FGA − ORB + TOV + 0.44 × FTA
+  const hPoss   = Math.max(1, h.fga - h.orb + h.tov + 0.44 * h.fta);
+  const aPoss   = Math.max(1, a.fga - a.orb + a.tov + 0.44 * a.fta);
+  const avgPoss = (hPoss + aPoss) / 2;  // simetrik baz; her iki takım için aynı payda
+
+  // ── Ratings (100 hücum başına, avgPoss baz) ───────────────────────────
+  const hOffRtg = safe(100 * h.pts / avgPoss);
+  const aOffRtg = safe(100 * a.pts / avgPoss);
+  const hDefRtg = aOffRtg;   // savunma puanı = rakibin hücum puanı
+  const aDefRtg = hOffRtg;
+  const hNetRtg = hOffRtg - hDefRtg;
+  const aNetRtg = aOffRtg - aDefRtg;
 
   return {
     fourFactors: {
@@ -258,22 +307,23 @@ function computeMetrics(sections, homeName, awayName, homeScore, awayScore) {
       away: [aeFG, 1 - aTOVpct, aORBpct, Math.min(aFTR, 1)],
     },
     ratings: {
-      home: [hOffRtg, hDefRtg, hOffRtg - hDefRtg],
-      away: [aOffRtg, aDefRtg, aOffRtg - aDefRtg],
+      home: [hOffRtg, hDefRtg, hNetRtg],
+      away: [aOffRtg, aDefRtg, aNetRtg],
     },
     shots: {
       labels: [homeName, awayName],
-      made2:  [h2pm,                                      a2pm],
-      miss2:  [Math.max(0, h2pa - h2pm),                 Math.max(0, a2pa - a2pm)],
-      made3:  [h.fg3.made,                               a.fg3.made],
-      miss3:  [Math.max(0, h.fg3.att - h.fg3.made),      Math.max(0, a.fg3.att - a.fg3.made)],
-      madeFT: [h.ft.made,                                a.ft.made],
-      missFT: [Math.max(0, h.ft.att - h.ft.made),        Math.max(0, a.ft.att - a.ft.made)],
+      made2:  [h.fg2m,                       a.fg2m],
+      miss2:  [Math.max(0, h.fg2a - h.fg2m), Math.max(0, a.fg2a - a.fg2m)],
+      made3:  [h.fg3m,                       a.fg3m],
+      miss3:  [Math.max(0, h.fg3a - h.fg3m), Math.max(0, a.fg3a - a.fg3m)],
+      madeFT: [h.ftm,                        a.ftm],
+      missFT: [Math.max(0, h.fta - h.ftm),   Math.max(0, a.fta - a.ftm)],
     },
     possession: {
       labels: [homeName, awayName],
       data:   [Math.max(0.01, hPoss), Math.max(0.01, aPoss)],
     },
+    meta: { hTS, aTS, hPoss, aPoss, avgPoss },
   };
 }
 
@@ -436,9 +486,21 @@ function updatePanelStats(sections, homeName, awayName) {
   panelStats.appendChild(grid);
 }
 
+function updateMetaStats(meta, homeName, awayName) {
+  const fmt = (v) => (v * 100).toFixed(1) + '%';
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('metaHomeTS',   fmt(meta.hTS));
+  setEl('metaAwayTS',   fmt(meta.aTS));
+  setEl('metaHomePoss', Math.round(meta.hPoss));
+  setEl('metaAwayPoss', Math.round(meta.aPoss));
+  setEl('metaAvgPoss',  Math.round(meta.avgPoss));
+}
+
 function updateSidePanel(sections, homeName, awayName, homeScore, awayScore) {
   updatePanelStats(sections, homeName, awayName);
-  updateSideCharts(computeMetrics(sections, homeName, awayName, homeScore, awayScore), homeName, awayName);
+  const metrics = computeMetrics(sections, homeName, awayName, homeScore, awayScore);
+  updateSideCharts(metrics, homeName, awayName);
+  updateMetaStats(metrics.meta, homeName, awayName);
 }
 
 // ── Socket Handlers ──────────────────────────────────────────────────────────

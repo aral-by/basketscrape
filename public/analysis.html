@@ -901,6 +901,41 @@
               <span>OffRtg eksi DefRtg. Pozitif = maçta baskın, negatif = geride. En özet metrik.</span>
             </div>
           </div>
+
+          <!-- TS% canlı karşılaştırma -->
+          <div class="metric-card" style="border-color:rgba(251,191,36,0.22);background:rgba(251,191,36,0.04)">
+            <div class="metric-icon" style="background:rgba(251,191,36,0.12);border-color:rgba(251,191,36,0.3);color:#fbbf24">
+              <svg class="icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="m9 12 2 2 4-4"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <strong style="color:#fbbf24">TS% — True Shooting</strong>
+              <span>PTS / (2 × (FGA + 0.44 × FTA)) — serbest atışı da kapsar, eFG%'den daha kapsamlı.</span>
+              <div style="display:flex;gap:16px;margin-top:7px;font-size:12px;font-weight:600">
+                <span style="color:var(--home)">Ev: <span id="metaHomeTS">—</span></span>
+                <span style="color:var(--away)">Dep: <span id="metaAwayTS">—</span></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Possession karşılaştırma -->
+          <div class="metric-card">
+            <div class="metric-icon">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <strong>Possession — Tahmini Hücum Sayısı</strong>
+              <span>FGA − ORB + TOV + 0.44×FTA (Oliver). Rating hesabında baz alınan ortak payda: <span id="metaAvgPoss" style="color:var(--total);font-weight:700">—</span></span>
+              <div style="display:flex;gap:16px;margin-top:7px;font-size:12px;font-weight:600">
+                <span style="color:var(--home)">Ev: <span id="metaHomePoss">—</span></span>
+                <span style="color:var(--away)">Dep: <span id="metaAwayPoss">—</span></span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
