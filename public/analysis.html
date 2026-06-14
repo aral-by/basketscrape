@@ -604,6 +604,8 @@
       .section-label { font-size: 9px; }
       .table-card-header { font-size: 10px; padding: 7px 10px; }
       .heatmap-card canvas { height: 200px !important; }
+      .params-grid { grid-template-columns: 1fr; }
+      .params-grid-full { grid-column: 1; }
     }
 
     /* hidden compat elements for analysis.js */
@@ -1788,6 +1790,13 @@
           state.homeName,
           state.awayName
         );
+      }
+
+      // Parametreler sayfasını güncelle
+      paramsState = state;
+      const paramsPage = document.getElementById('page-params');
+      if (paramsPage && paramsPage.classList.contains('active')) {
+        renderParams();
       }
     });
 
