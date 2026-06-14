@@ -217,19 +217,31 @@
 
     .sb-sep { height: 1px; background: var(--border); margin: 6px 8px; }
 
-    /* ── Heat map toggle badge ─── */
-    .sb-toggle-badge {
-      margin-left: auto; flex-shrink: 0;
-      font-size: 9px; font-weight: 700;
-      padding: 2px 6px; border-radius: 3px;
-      background: var(--border); color: var(--dim);
-      letter-spacing: 0.6px; transition: all 0.15s;
+    /* ── Heatmap page ─── */
+    .heatmap-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
     }
-    .sb-item.heatmap-on .sb-toggle-badge {
-      background: rgba(251,146,60,0.18);
-      color: #fb923c;
+    .heatmap-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r-xl); padding: 16px 18px 14px;
     }
-    .sidebar.collapsed .sb-toggle-badge { display: none; }
+    .heatmap-card.home { border-color: var(--home-bdr); }
+    .heatmap-card.away { border-color: var(--away-bdr); }
+    .heatmap-card-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
+      text-transform: uppercase; margin-bottom: 12px;
+    }
+    .heatmap-card.home .heatmap-card-title { color: var(--home); }
+    .heatmap-card.away .heatmap-card-title { color: var(--away); }
+    .heatmap-card canvas { width: 100%; height: 260px; display: block; }
+    .heatmap-legend {
+      display: flex; align-items: center; gap: 8px; margin-top: 10px;
+      font-size: 10px; color: var(--dim);
+    }
+    .legend-bar { flex: 1; height: 5px; border-radius: 3px; }
+    .home-legend { background: linear-gradient(to right, rgba(129,140,248,0.06), rgba(129,140,248,1)); }
+    .away-legend { background: linear-gradient(to right, rgba(251,113,133,0.06), rgba(251,113,133,1)); }
+    @media (max-width: 900px) { .heatmap-grid { grid-template-columns: 1fr; } }
 
     /* ── Sidebar Footer ─── */
     .sidebar-footer {
@@ -638,14 +650,13 @@
       <div class="sb-group">
         <div class="sb-group-label">Görünüm</div>
 
-        <button class="sb-item" id="heatmapToggle">
+        <button class="sb-item" data-page="page-heatmap">
           <span class="sb-item-icon">
             <svg class="icon" width="16" height="16" viewBox="0 0 24 24">
               <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
             </svg>
           </span>
           <span class="sb-item-label">Isı Haritası</span>
-          <span class="sb-toggle-badge" id="heatmapBadge">OFF</span>
         </button>
       </div>
 
@@ -938,6 +949,37 @@
       <div id="panelStats"><p class="no-stats">İstatistikler bekleniyor...</p></div>
     </div>
 
+    <!-- ── Sayfa: Isı Haritası ──────────────────────────── -->
+    <div class="page" id="page-heatmap">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Isı Haritası</div>
+          <div class="page-sub">Periyot × dakika bazında iki takımın skor yoğunluğu</div>
+        </div>
+      </div>
+
+      <div class="heatmap-grid">
+        <div class="heatmap-card home">
+          <div class="heatmap-card-title" id="hmHomeName">Ev Sahibi</div>
+          <canvas id="hmHomeCanvas"></canvas>
+          <div class="heatmap-legend">
+            <span>Az</span>
+            <div class="legend-bar home-legend"></div>
+            <span>Çok</span>
+          </div>
+        </div>
+        <div class="heatmap-card away">
+          <div class="heatmap-card-title" id="hmAwayName">Deplasman</div>
+          <canvas id="hmAwayCanvas"></canvas>
+          <div class="heatmap-legend">
+            <span>Az</span>
+            <div class="legend-bar away-legend"></div>
+            <span>Çok</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- ── JS compat: analysis.js bu ID'leri arıyor ─────── -->
@@ -998,6 +1040,10 @@
         requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
       }
 
+      if (pageId === 'page-heatmap') {
+        requestAnimationFrame(renderHeatmaps);
+      }
+
       if (window.innerWidth <= 768) closeSidebar();
     }
 
@@ -1005,84 +1051,121 @@
       btn.addEventListener('click', () => switchPage(btn.dataset.page));
     });
 
-    /* ── Isı Haritası ───────────────────────────────── */
-    let heatmapEnabled = false;
+    /* ── Isı Haritası (Canvas) ──────────────────────── */
+    let hmHome = [];
+    let hmAway = [];
 
-    // Her tbody için hangi RGB rengi kullanılacak
-    const HEAT_COLORS = {
-      homeTbody:   [129, 140, 248],   // indigo  (home)
-      awayTbody:   [251, 113, 133],   // rose    (away)
-      homeTbody40: [129, 140, 248],   // indigo  (home ×40)
-      awayTbody40: [251, 113, 133],   // rose    (away ×40)
-      totalTbody:  [ 52, 211, 153],   // emerald (total ×40)
-    };
+    function drawHeatCanvas(canvasId, minutes, r, g, b) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
 
-    function applyHeatToTable(tbodyId) {
-      const tbody = document.getElementById(tbodyId);
-      if (!tbody) return;
+      const dpr  = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0) return;
 
-      const [r, g, b] = HEAT_COLORS[tbodyId];
-      const cells = [...tbody.querySelectorAll('td:not(.period-label)')];
-      const values = cells.map(td => parseFloat(td.textContent) || 0);
-      const max = Math.max(...values, 1);
+      canvas.width  = Math.round(rect.width  * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
 
-      cells.forEach((td, i) => {
-        const val = values[i];
-        if (val > 0) {
-          const t = val / max;             // 0..1 yoğunluk
-          const alpha = 0.18 + t * 0.67;  // 0.18 → 0.85
-          td.style.background = `rgba(${r},${g},${b},${alpha.toFixed(2)})`;
-          td.style.color      = t > 0.55 ? '#fff' : `rgba(${r},${g},${b},0.95)`;
-          td.style.fontWeight = t > 0.7 ? '700' : '';
-        } else {
-          td.style.background = '';
-          td.style.color      = '';
-          td.style.fontWeight = '';
+      const W = rect.width;
+      const H = rect.height;
+
+      const PERIODS = 4;
+      const MINS    = 10;
+
+      const PAD_L = 6;
+      const PAD_T = 34;  // period labels
+      const PAD_R = 6;
+      const PAD_B = 6;
+
+      const gridW = W - PAD_L - PAD_R;
+      const gridH = H - PAD_T - PAD_B;
+      const cW    = gridW / PERIODS;
+      const cH    = gridH / MINS;
+
+      // normalize: max değeri bul (çeyrekler arası)
+      const vals = [];
+      for (let i = 0; i < PERIODS * MINS; i++) vals.push(minutes[i] ?? 0);
+      const maxVal = Math.max(...vals, 1);
+
+      // Hücreler
+      for (let p = 0; p < PERIODS; p++) {
+        for (let m = 0; m < MINS; m++) {
+          const val = vals[p * MINS + m];
+          const t   = val / maxVal;
+
+          const x = PAD_L + p * cW;
+          const y = PAD_T + m * cH;
+
+          // zemin
+          ctx.fillStyle = 'rgba(15,15,18,1)';
+          ctx.fillRect(x, y, cW, cH);
+
+          // renk katmanı
+          if (t > 0) {
+            const alpha = 0.05 + t * 0.90;
+            ctx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+            ctx.fillRect(x + 1.5, y + 1.5, cW - 3, cH - 3);
+          }
         }
-      });
-    }
-
-    function applyHeatmap() {
-      Object.keys(HEAT_COLORS).forEach(id => applyHeatToTable(id));
-    }
-
-    function clearHeatmap() {
-      Object.keys(HEAT_COLORS).forEach(tbodyId => {
-        const tbody = document.getElementById(tbodyId);
-        if (!tbody) return;
-        tbody.querySelectorAll('td:not(.period-label)').forEach(td => {
-          td.style.background = '';
-          td.style.color      = '';
-          td.style.fontWeight = '';
-        });
-      });
-    }
-
-    // Tbodylarda içerik değişince heatmap'i yenile
-    Object.keys(HEAT_COLORS).forEach(tbodyId => {
-      const el = document.getElementById(tbodyId);
-      if (!el) return;
-      new MutationObserver(() => {
-        if (heatmapEnabled) applyHeatToTable(tbodyId);
-      }).observe(el, { childList: true, subtree: true });
-    });
-
-    const heatmapToggle = document.getElementById('heatmapToggle');
-    const heatmapBadge  = document.getElementById('heatmapBadge');
-
-    heatmapToggle.addEventListener('click', () => {
-      heatmapEnabled = !heatmapEnabled;
-      heatmapToggle.classList.toggle('heatmap-on', heatmapEnabled);
-      heatmapBadge.textContent = heatmapEnabled ? 'ON' : 'OFF';
-      if (heatmapEnabled) {
-        applyHeatmap();
-        // Tablo sayfasında değilse oraya götür
-        const activePage = document.querySelector('.page.active');
-        if (!activePage || activePage.id !== 'page-tables') switchPage('page-tables');
-      } else {
-        clearHeatmap();
       }
+
+      // Periyot dikey ayırıcılar
+      ctx.strokeStyle = 'rgba(39,39,42,0.9)';
+      ctx.lineWidth = 2;
+      for (let p = 1; p < PERIODS; p++) {
+        const x = PAD_L + p * cW;
+        ctx.beginPath();
+        ctx.moveTo(x, PAD_T);
+        ctx.lineTo(x, PAD_T + gridH);
+        ctx.stroke();
+      }
+
+      // Dakika yatay ince çizgiler (5. dk)
+      ctx.strokeStyle = 'rgba(63,63,70,0.5)';
+      ctx.lineWidth = 1;
+      const midY = PAD_T + 5 * cH;
+      ctx.beginPath();
+      ctx.moveTo(PAD_L, midY);
+      ctx.lineTo(PAD_L + gridW, midY);
+      ctx.stroke();
+
+      // Periyot etiketleri
+      const labels = ['1. Çeyrek', '2. Çeyrek', '3. Çeyrek', '4. Çeyrek'];
+      ctx.fillStyle = '#71717a';
+      ctx.font = `${Math.max(10, Math.min(12, cW / 8))}px Inter, system-ui, sans-serif`;
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'middle';
+      for (let p = 0; p < PERIODS; p++) {
+        ctx.fillText(labels[p], PAD_L + (p + 0.5) * cW, PAD_T / 2);
+      }
+
+      // Dakika etiketleri (sol kenarda gizli ama 5. dk işareti)
+      ctx.fillStyle = 'rgba(113,113,122,0.5)';
+      ctx.font = '9px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('5d', PAD_L - 2, midY);
+    }
+
+    function renderHeatmaps() {
+      const page = document.getElementById('page-heatmap');
+      if (!page || !page.classList.contains('active')) return;
+      drawHeatCanvas('hmHomeCanvas', hmHome, 129, 140, 248);
+      drawHeatCanvas('hmAwayCanvas', hmAway, 251, 113, 133);
+    }
+
+    // Yeni veri gelince ismi güncelle ve eğer sayfa açıksa yeniden çiz
+    socket.on('scoreUpdate', (state) => {
+      hmHome = state.homeMinutes || [];
+      hmAway = state.awayMinutes || [];
+      if (state.homeName) document.getElementById('hmHomeName').textContent = state.homeName;
+      if (state.awayName) document.getElementById('hmAwayName').textContent = state.awayName;
+      renderHeatmaps();
     });
+
+    // Pencere boyutu değişirse yeniden çiz
+    window.addEventListener('resize', renderHeatmaps);
   </script>
 </body>
 </html>
