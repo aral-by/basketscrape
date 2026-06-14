@@ -392,19 +392,25 @@
     td.total-cell.active-cell { background: var(--total-bg); border: 1px solid var(--total); color: var(--total) !important; }
 
     /* ── Chart Cards ─── */
-    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .charts-row { display: flex; flex-direction: column; gap: 14px; }
 
     .chart-card {
       background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--r-xl); padding: 18px 18px 14px;
+      border-radius: var(--r-xl); padding: 20px 20px 16px;
+      position: relative;
     }
-    .chart-card.total-chart { border-color: var(--total-bdr); }
+    .chart-card.total-chart   { border-color: var(--total-bdr); }
+    .chart-card.combined-chart { border-color: var(--border-md); }
+
+    .chart-card canvas { height: 300px !important; }
+    .chart-card.combined-chart canvas { height: 360px !important; }
 
     .chart-label {
       font-size: 10px; font-weight: 600; color: var(--dim);
-      letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 14px;
+      letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 16px;
     }
-    .total-chart .chart-label { color: var(--total); }
+    .total-chart .chart-label    { color: var(--total); }
+    .combined-chart .chart-label { color: var(--text); }
 
     /* ── Analytics Pages ─── */
     .analytics-layout {
@@ -470,11 +476,26 @@
     @media (max-width: 960px) {
       .tables-row { grid-template-columns: 1fr; }
       .tables-row.three-col { grid-template-columns: 1fr; }
-      .charts-row { grid-template-columns: 1fr; }
       .analytics-layout { grid-template-columns: 1fr; }
+      .heatmap-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .page-title { font-size: 16px; }
+      .page-sub   { font-size: 11px; }
+      .chart-card canvas { height: 240px !important; }
+      .chart-card.combined-chart canvas { height: 290px !important; }
+      .analytic-chart-card canvas { max-height: 280px; }
+      .sb-match { display: none; }   /* mobilde sidebar açılınca dar kalır */
+      th, td { padding: 4px 2px; font-size: 10px; }
+      .metric-card { padding: 11px 12px; gap: 9px; }
+      .metric-icon { width: 28px; height: 28px; }
     }
     @media (max-width: 640px) {
-      .main { padding: 60px 14px 40px; }
+      .main { padding: 58px 12px 40px; }
+      .page-header { margin-bottom: 16px; padding-bottom: 14px; }
+      .section-label { font-size: 9px; }
+      .table-card-header { font-size: 10px; padding: 7px 10px; }
+      .heatmap-card canvas { height: 200px !important; }
     }
 
     /* hidden compat elements for analysis.js */
@@ -773,12 +794,16 @@
 
       <div class="charts-row">
         <div class="chart-card">
-          <div class="chart-label">Dakika Başına Atılan Sayı</div>
-          <canvas id="scoreChart" height="120"></canvas>
+          <div class="chart-label">Dakika Başına Atılan Sayı — Ev Sahibi vs Deplasman</div>
+          <canvas id="scoreChart"></canvas>
         </div>
         <div class="chart-card total-chart">
-          <div class="chart-label">Toplam (×40) — Dakika Başına</div>
-          <canvas id="totalChart" height="120"></canvas>
+          <div class="chart-label">Toplam (×40) — Dakika Başına Tempo</div>
+          <canvas id="totalChart"></canvas>
+        </div>
+        <div class="chart-card combined-chart">
+          <div class="chart-label">Birleşik Görünüm — Ev Sahibi · Deplasman · Toplam</div>
+          <canvas id="combinedChart"></canvas>
         </div>
       </div>
     </div>
@@ -1086,6 +1111,79 @@
       btn.addEventListener('click', () => switchPage(btn.dataset.page));
     });
 
+    /* ── Kombinasyon Grafiği ────────────────────────── */
+    let combinedChart = null;
+
+    function initCombinedChart(homeName, awayName) {
+      const ctx = document.getElementById('combinedChart').getContext('2d');
+      combinedChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: homeName || 'Ev Sahibi',
+              data: [], borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,0.07)',
+              tension: 0.4, pointRadius: 2, pointHoverRadius: 5, fill: true, borderWidth: 2,
+            },
+            {
+              label: awayName || 'Deplasman',
+              data: [], borderColor: '#fb7185', backgroundColor: 'rgba(251,113,133,0.06)',
+              tension: 0.4, pointRadius: 2, pointHoverRadius: 5, fill: true, borderWidth: 2,
+            },
+            {
+              label: 'Toplam',
+              data: [], borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.05)',
+              tension: 0.4, pointRadius: 2, pointHoverRadius: 5, fill: false, borderWidth: 2,
+              borderDash: [5, 3],
+            },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 250 },
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: {
+              title: { display: true, text: 'Dakika', color: '#71717a', font: { size: 11 } },
+              ticks: { color: '#71717a', maxTicksLimit: 20 },
+              grid: { color: 'rgba(255,255,255,0.04)' },
+            },
+            y: {
+              title: { display: true, text: 'Sayı / Dakika', color: '#71717a', font: { size: 11 } },
+              ticks: { color: '#71717a', stepSize: 1 },
+              grid: { color: 'rgba(255,255,255,0.04)' },
+              beginAtZero: true,
+            },
+          },
+          plugins: {
+            legend: { labels: { color: '#a1a1aa', font: { size: 12 }, boxWidth: 14, padding: 16 } },
+            tooltip: {
+              backgroundColor: 'rgba(15,15,18,0.96)',
+              titleColor: '#a1a1aa', bodyColor: '#e4e4e7',
+              callbacks: {
+                title: (items) => `${items[0].label}. Dakika`,
+              },
+            },
+          },
+        },
+      });
+    }
+
+    function updateCombinedChart(homeMinutes, awayMinutes, lastAbsoluteMinute, homeName, awayName) {
+      if (!combinedChart) initCombinedChart(homeName, awayName);
+      const count = Math.max(lastAbsoluteMinute, 1);
+      combinedChart.data.labels             = Array.from({ length: count }, (_, i) => i + 1);
+      combinedChart.data.datasets[0].data   = homeMinutes.slice(0, count);
+      combinedChart.data.datasets[0].label  = homeName || 'Ev Sahibi';
+      combinedChart.data.datasets[1].data   = awayMinutes.slice(0, count);
+      combinedChart.data.datasets[1].label  = awayName || 'Deplasman';
+      combinedChart.data.datasets[2].data   = Array.from({ length: count }, (_, i) =>
+        (homeMinutes[i] ?? 0) + (awayMinutes[i] ?? 0)
+      );
+      combinedChart.update();
+    }
+
     /* ── Isı Haritası (Canvas) ──────────────────────── */
     let hmHome = [];
     let hmAway = [];
@@ -1197,6 +1295,17 @@
       if (state.homeName) document.getElementById('hmHomeName').textContent = state.homeName;
       if (state.awayName) document.getElementById('hmAwayName').textContent = state.awayName;
       renderHeatmaps();
+
+      // Kombinasyon grafiğini güncelle
+      if (state.homeMinutes && state.awayMinutes && state.lastAbsoluteMinute > 0) {
+        updateCombinedChart(
+          state.homeMinutes,
+          state.awayMinutes,
+          state.lastAbsoluteMinute,
+          state.homeName,
+          state.awayName
+        );
+      }
     });
 
     // Pencere boyutu değişirse yeniden çiz

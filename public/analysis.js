@@ -45,17 +45,18 @@ function initChart(homeName, awayName) {
     data: {
       labels: [],
       datasets: [
-        { label: homeName || 'Ev Sahibi', data: [], borderColor: '#8a6dcc', backgroundColor: 'rgba(138,109,204,0.12)', tension: 0.35, pointRadius: 4, pointHoverRadius: 6, fill: true },
-        { label: awayName || 'Deplasman', data: [], borderColor: '#e05c5c', backgroundColor: 'rgba(224,92,92,0.10)',   tension: 0.35, pointRadius: 4, pointHoverRadius: 6, fill: true },
+        { label: homeName || 'Ev Sahibi', data: [], borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,0.10)', tension: 0.4, pointRadius: 3, pointHoverRadius: 5, fill: true },
+        { label: awayName || 'Deplasman', data: [], borderColor: '#fb7185', backgroundColor: 'rgba(251,113,133,0.08)', tension: 0.4, pointRadius: 3, pointHoverRadius: 5, fill: true },
       ],
     },
     options: {
-      responsive: true, animation: { duration: 250 }, interaction: { mode: 'index', intersect: false },
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 250 }, interaction: { mode: 'index', intersect: false },
       scales: {
-        x: { title: { display: true, text: 'Dakika', color: '#b19cd9', font: { size: 12 } }, ticks: { color: '#888', maxTicksLimit: 20 }, grid: { color: 'rgba(177,156,217,0.08)' } },
-        y: { title: { display: true, text: 'Atılan Sayı', color: '#b19cd9', font: { size: 12 } }, ticks: { color: '#888', stepSize: 1 }, grid: { color: 'rgba(177,156,217,0.08)' }, beginAtZero: true },
+        x: { title: { display: true, text: 'Dakika', color: '#71717a', font: { size: 11 } }, ticks: { color: '#71717a', maxTicksLimit: 20 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { title: { display: true, text: 'Sayı / dk', color: '#71717a', font: { size: 11 } }, ticks: { color: '#71717a', stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true },
       },
-      plugins: { legend: { labels: { color: '#b19cd9', font: { size: 12 } } }, tooltip: { backgroundColor: 'rgba(30,20,50,0.92)', titleColor: '#b19cd9', bodyColor: '#e0e0e0' } },
+      plugins: { legend: { labels: { color: '#a1a1aa', font: { size: 12 }, boxWidth: 12 } }, tooltip: { backgroundColor: 'rgba(15,15,18,0.95)', titleColor: '#a1a1aa', bodyColor: '#e4e4e7' } },
     },
   });
 }
@@ -80,15 +81,16 @@ function initTotalChart() {
     type: 'line',
     data: {
       labels: [],
-      datasets: [{ label: 'Toplam (×40)', data: [], borderColor: '#2ecc71', backgroundColor: 'rgba(46,204,113,0.12)', tension: 0.35, pointRadius: 4, pointHoverRadius: 6, fill: true }],
+      datasets: [{ label: 'Toplam (×40)', data: [], borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.10)', tension: 0.4, pointRadius: 3, pointHoverRadius: 5, fill: true }],
     },
     options: {
-      responsive: true, animation: { duration: 250 }, interaction: { mode: 'index', intersect: false },
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 250 }, interaction: { mode: 'index', intersect: false },
       scales: {
-        x: { title: { display: true, text: 'Dakika', color: '#2ecc71', font: { size: 12 } }, ticks: { color: '#888', maxTicksLimit: 20 }, grid: { color: 'rgba(46,204,113,0.06)' } },
-        y: { title: { display: true, text: 'Toplam ×40', color: '#2ecc71', font: { size: 12 } }, ticks: { color: '#888' }, grid: { color: 'rgba(46,204,113,0.06)' }, beginAtZero: true },
+        x: { title: { display: true, text: 'Dakika', color: '#34d399', font: { size: 11 } }, ticks: { color: '#71717a', maxTicksLimit: 20 }, grid: { color: 'rgba(52,211,153,0.06)' } },
+        y: { title: { display: true, text: 'Toplam ×40', color: '#34d399', font: { size: 11 } }, ticks: { color: '#71717a' }, grid: { color: 'rgba(52,211,153,0.06)' }, beginAtZero: true },
       },
-      plugins: { legend: { labels: { color: '#2ecc71', font: { size: 12 } } }, tooltip: { backgroundColor: 'rgba(10,30,15,0.92)', titleColor: '#2ecc71', bodyColor: '#e0e0e0' } },
+      plugins: { legend: { labels: { color: '#34d399', font: { size: 12 }, boxWidth: 12 } }, tooltip: { backgroundColor: 'rgba(10,20,15,0.95)', titleColor: '#34d399', bodyColor: '#e4e4e7' } },
     },
   });
 }
