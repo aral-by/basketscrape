@@ -260,6 +260,30 @@
     .sb-footer-text { font-size: 11px; color: var(--muted); }
     .sb-footer-text strong { color: var(--text); font-weight: 600; }
 
+    .sb-exit-btn {
+      display: flex; align-items: center; gap: 7px;
+      width: 100%; margin-top: 6px;
+      padding: 7px 10px; border-radius: var(--r);
+      background: transparent; border: 1px solid rgba(248,113,133,0.35);
+      color: #fb7185; font-size: 12px; font-weight: 500;
+      font-family: inherit; cursor: pointer; transition: all 0.15s;
+      white-space: nowrap; overflow: hidden;
+    }
+    .sb-exit-btn:hover { background: rgba(251,113,133,0.08); border-color: #fb7185; }
+    .sb-exit-btn svg  { flex-shrink: 0; }
+    .sidebar.collapsed .sb-exit-btn span { display: none; }
+    .sidebar.collapsed .sb-exit-btn { justify-content: center; padding: 7px 0; }
+
+    .mobile-exit-btn {
+      margin-left: auto;
+      padding: 5px 10px; border-radius: var(--r);
+      background: transparent; border: 1px solid rgba(248,113,133,0.4);
+      color: #fb7185; font-size: 11px; font-weight: 600;
+      font-family: inherit; cursor: pointer; white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .mobile-exit-btn:hover { background: rgba(251,113,133,0.1); }
+
     /* ═══════════════════════════════════════════════════
        MOBILE BAR
     ═══════════════════════════════════════════════════ */
@@ -625,6 +649,7 @@
       </svg>
     </button>
     <div class="mobile-score" id="mobileScore">– : –</div>
+    <button class="mobile-exit-btn" id="exitMatchBtnMobile">Maçtan Çık</button>
   </div>
 
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -816,6 +841,14 @@
         <div class="sb-live-dot"></div>
         <span class="sb-footer-text"><strong>Flashscore</strong> · Canlı</span>
       </div>
+      <button class="sb-exit-btn" id="exitMatchBtn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span>Maçtan Çık</span>
+      </button>
     </div>
 
   </aside>
@@ -1802,6 +1835,15 @@
 
     // Pencere boyutu değişirse yeniden çiz
     window.addEventListener('resize', renderHeatmaps);
+
+    // ── Maçtan Çık ──────────────────────────────────────
+    async function exitMatch() {
+      await fetch('/stop', { method: 'POST' }).catch(() => {});
+      window.location.href = '/';
+    }
+
+    document.getElementById('exitMatchBtn').addEventListener('click', exitMatch);
+    document.getElementById('exitMatchBtnMobile').addEventListener('click', exitMatch);
   </script>
 </body>
 </html>
