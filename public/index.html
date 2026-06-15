@@ -200,6 +200,23 @@
     }
     .analysis-link:hover { border-color: var(--primary); color: var(--primary); }
 
+    .stop-btn {
+      display: none;
+      margin-top: 8px;
+      width: 100%;
+      padding: 9px 16px;
+      background: transparent;
+      border: 1px solid rgba(248,113,113,0.4);
+      border-radius: var(--radius);
+      color: var(--danger);
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .stop-btn:hover { background: var(--danger-bg); border-color: var(--danger); }
+
     .divider {
       height: 1px;
       background: var(--border);
@@ -229,6 +246,7 @@
 
     <div class="status-box" id="statusBox"></div>
     <a href="/analysis.html" id="analysisLink" class="analysis-link">Analiz Paneline Git →</a>
+    <button id="stopBtn" class="stop-btn">Maçtan Çık</button>
 
     <div class="divider"></div>
     <p class="hint">Maç başlamadan önce URL girip başlatabilirsin — sistem maç saatini bekler ve otomatik olarak takibe geçer.</p>

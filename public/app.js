@@ -1,8 +1,9 @@
 const socket = io();
 
-const urlInput    = document.getElementById('urlInput');
-const startBtn    = document.getElementById('startBtn');
-const statusBox   = document.getElementById('statusBox');
+const urlInput     = document.getElementById('urlInput');
+const startBtn     = document.getElementById('startBtn');
+const stopBtn      = document.getElementById('stopBtn');
+const statusBox    = document.getElementById('statusBox');
 const analysisLink = document.getElementById('analysisLink');
 
 startBtn.addEventListener('click', async () => {
@@ -28,6 +29,11 @@ startBtn.addEventListener('click', async () => {
   }
 });
 
+stopBtn.addEventListener('click', async () => {
+  stopBtn.disabled = true;
+  await fetch('/stop', { method: 'POST' }).catch(() => {});
+});
+
 socket.on('matchStatus', ({ status, homeName, awayName, message }) => {
   const teamLine = (homeName && awayName) ? `${homeName} - ${awayName}` : '';
 
@@ -36,28 +42,41 @@ socket.on('matchStatus', ({ status, homeName, awayName, message }) => {
     startBtn.disabled = false;
     startBtn.textContent = 'Başlat';
     analysisLink.style.display = 'none';
+    stopBtn.style.display = 'none';
   } else if (status === 'not_started') {
     setStatus('not_started', `Maç henüz başlamadı, bekleniyor...${teamLine ? '\n' + teamLine : ''}`);
     analysisLink.style.display = 'inline-block';
+    stopBtn.style.display = 'block';
+    stopBtn.disabled = false;
+    stopBtn.textContent = 'Maçtan Çık';
   } else if (status === 'running') {
     setStatus('running', `Maç devam ediyor${teamLine ? ': ' + teamLine : ''}`);
     startBtn.disabled = false;
     startBtn.textContent = 'Yenile';
     analysisLink.style.display = 'inline-block';
+    stopBtn.style.display = 'block';
+    stopBtn.disabled = false;
+    stopBtn.textContent = 'Maçtan Çık';
   } else if (status === 'error') {
     setStatus('error', message || 'Bir hata oluştu');
     startBtn.disabled = false;
     startBtn.textContent = 'Başlat';
+    stopBtn.style.display = 'none';
   } else if (status === 'stopped') {
     setStatus('', '');
     startBtn.disabled = false;
     startBtn.textContent = 'Başlat';
+    urlInput.value = '';
+    stopBtn.style.display = 'none';
+    stopBtn.disabled = false;
+    analysisLink.style.display = 'none';
   }
 });
 
 socket.on('matchEnd', () => {
   setStatus('finished', 'Maç Sona Erdi');
   analysisLink.style.display = 'inline-block';
+  stopBtn.style.display = 'none';
 });
 
 function setStatus(type, text) {
