@@ -496,6 +496,17 @@
 
     .no-stats { color: var(--dim); text-align: center; font-style: italic; padding: 32px; font-size: 12px; }
 
+    .no-stats-banner {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px 16px; border-radius: var(--r-lg); margin-bottom: 16px;
+      background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.25);
+      color: #fbbf24;
+    }
+    .no-stats-banner svg { flex-shrink: 0; margin-top: 1px; }
+    .no-stats-banner div { display: flex; flex-direction: column; gap: 3px; }
+    .no-stats-banner strong { font-size: 12px; font-weight: 600; color: #fef08a; }
+    .no-stats-banner span  { font-size: 11px; color: rgba(251,191,36,0.75); line-height: 1.5; }
+
     /* ── Parametreler Page ─── */
     .params-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
     .param-card {

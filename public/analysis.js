@@ -451,6 +451,41 @@ function updateSideCharts(metrics, homeName, awayName) {
   possChart.update();
 }
 
+// Stats gerektiren sayfaların ID listesi
+const STATS_PAGES = ['page-four-factors', 'page-efficiency', 'page-shots', 'page-possession', 'page-stats'];
+const NO_STATS_ID = 'noStatsWarning';
+
+function setNoStatsWarning(show) {
+  STATS_PAGES.forEach(pageId => {
+    const page = document.getElementById(pageId);
+    if (!page) return;
+
+    let banner = page.querySelector('#' + NO_STATS_ID);
+
+    if (show) {
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = NO_STATS_ID;
+        banner.className = 'no-stats-banner';
+        banner.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div>
+            <strong>Bu maçın istatistik verisi yok</strong>
+            <span>Flashscore bu maç için istatistik yayınlamıyor. Skor tabloları ve grafikler çalışmaya devam ediyor.</span>
+          </div>`;
+        page.insertBefore(banner, page.children[1] || null);
+      }
+      banner.style.display = 'flex';
+    } else {
+      if (banner) banner.style.display = 'none';
+    }
+  });
+}
+
 function updatePanelStats(sections, homeName, awayName) {
   panelStats.innerHTML = '';
   if (!sections || sections.length === 0) {
@@ -539,7 +574,12 @@ socket.on('scoreUpdate', (state) => {
   renderTotalTbody(totalTbody, homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute);
   updateChart(homeMinutes, awayMinutes, lastAbsoluteMinute, homeName, awayName);
   updateTotalChart(homeMinutes, awayMinutes, lastAbsoluteMinute);
-  if (stats) updateSidePanel(stats, latestHomeName, latestAwayName, latestHomeScore, latestAwayScore);
+  if (stats) {
+    updateSidePanel(stats, latestHomeName, latestAwayName, latestHomeScore, latestAwayScore);
+    setNoStatsWarning(false);
+  } else {
+    setNoStatsWarning(true);
+  }
 });
 
 socket.on('matchStatus', ({ status, homeName, awayName, message }) => {
@@ -571,6 +611,11 @@ socket.on('matchEnd', (result) => {
     renderTotalTbody(totalTbody, homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute);
     updateChart(homeMinutes, awayMinutes, lastAbsoluteMinute, homeName, awayName);
     updateTotalChart(homeMinutes, awayMinutes, lastAbsoluteMinute);
-    if (result.state.stats) updateSidePanel(result.state.stats, latestHomeName, latestAwayName, latestHomeScore, latestAwayScore);
+    if (result.state.stats) {
+      updateSidePanel(result.state.stats, latestHomeName, latestAwayName, latestHomeScore, latestAwayScore);
+      setNoStatsWarning(false);
+    } else {
+      setNoStatsWarning(true);
+    }
   }
 });
