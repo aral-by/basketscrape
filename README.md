@@ -1,115 +1,154 @@
-# basketscrape
+# BasketScrape
 
-A web application that tracks live basketball games in real time via Flashscore, with minute-by-minute score analysis and statistics visualization.
-
----
-
-## What It Does
-
-- Paste a Flashscore live match link into the app
-- The app scrapes the page in the background every 2 seconds
-- Scores are recorded minute by minute into a table, and charts update instantly
-- The stats panel automatically calculates offensive/defensive efficiency, shot distribution, possession, and more
+Flashscore üzerinden canlı basketbol maçlarını gerçek zamanlı takip eden, dakika bazlı skor analizi ve istatistik görselleştirme sunan web uygulaması.
 
 ---
 
-## Setup
+## Özellikler
+
+- Flashscore maç linki girerek canlı veri çekme başlatılır
+- Arka planda her 2 saniyede bir scrape yapılır
+- Skorlar dakika bazında tabloya işlenir, grafikler anlık güncellenir
+- Maç ortasından başlansa bile ilk hücre sıfır olarak işlenir (baseline koruması)
+- İstatistik verisi olmayan maçlarda sarı uyarı banner'ı gösterilir
+- **Maçtan Çık** butonu ile aktif scraper durdurulup yeni maç başlatılabilir
+
+---
+
+## Kurulum
 
 ```bash
 npm install
-node server.js
+npm start
 ```
 
-Open in browser: `http://localhost:3010`
+Tarayıcıda aç: `http://localhost:3010`
+
+### Çoklu Örnek Kurulumu
+
+Aynı anda farklı portlarda birden fazla instance çalıştırmak için:
+
+```
+kurulum.bat
+```
+
+`basketscrape-3020`, `basketscrape-3030`, `basketscrape-3040`, `basketscrape-3050` klasörlerini oluşturur, her birinde port ayarlı `start.bat` hazırlar.
 
 ---
 
-## Usage
+## Kullanım
 
-1. Paste a Flashscore match link on the home page
-2. Click the **Start** button
-3. Once the match begins, the `analysis` page updates automatically
-4. Click the **☰** button in the top-right corner to open the stats panel
+1. Ana sayfaya Flashscore maç linki yapıştır
+2. **Başlat** butonuna tıkla
+3. Maç başlayınca `analysis.html` sayfası otomatik güncellenir
+4. Sol sidebar'dan analiz sekmeleri arasında geçiş yapılır
+5. Farklı bir maça geçmek için sidebar altındaki **Maçtan Çık** butonuna bas
 
 ---
 
-## Project Structure
+## Proje Yapısı
 
 ```
 basketscrape/
-├── server.js          # Express + Socket.io server, /start and /stop endpoints
-├── scraper.js         # Puppeteer-based Flashscore scraper, stats fetching
-├── gameState.js       # Minute-by-minute score calculation engine
+├── src/
+│   ├── server.js        # Express + Socket.IO sunucu, /start ve /stop endpoint'leri
+│   ├── scraper.js       # Puppeteer tabanlı Flashscore scraper
+│   └── gameState.js     # Dakika bazlı skor hesaplama motoru
 ├── public/
-│   ├── index.html     # Match link input page
-│   ├── app.js         # index.html socket handler
-│   ├── analysis.html  # Main analysis page
-│   └── analysis.js    # Table, chart, and metric rendering logic
-├── algo.md            # Score calculation algorithm documentation
-└── formula.md         # Statistics formulas and chart types
+│   ├── index.html       # Maç linki giriş sayfası
+│   ├── app.js           # index.html socket handler
+│   ├── analysis.html    # Ana analiz sayfası (sidebar + 9 sekme)
+│   └── analysis.js      # Tablo, grafik ve metrik render mantığı
+├── kurulum.bat          # Çoklu port kurulum scripti (3020/3030/3040/3050)
+└── nixpacks.toml        # Railway.app deploy konfigürasyonu
 ```
 
 ---
 
-## Tables
+## Analiz Sekmeleri
 
-A **period × minute** format table for each team:
+### Skor Tabloları
+Periyot × Dakika formatında her takım için ayrı tablo:
 
-| | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Q1 | 3 | 0 | 5 | 2 | ... | | | | | |
-| Q2 | | | | | | | | | | |
+| | 1 | 2 | 3 | ... | 10 |
+|---|---|---|---|---|---|
+| P1 | 3 | 0 | 5 | ... | |
+| P2 | | | | | |
 
-- **Standard table:** points scored in that specific minute
-- **×40 table:** minute value × 40 (normalized tempo display)
-- **Red center table:** (home + away) × 40 combined total
+- **Gerçek tablo:** o dakikada atılan sayı
+- **×40 tablo:** dakika değeri × 40 (normalize tempo)
+- **Toplam tablo:** (ev + deplasman) × 40
 
----
+### Grafikler
+- Dakika bazlı ev sahibi vs deplasman çizgi grafiği
+- Toplam tempo grafiği
+- **Birleşik grafik:** her iki takım + toplam tek ekranda
 
-## Stats Panel (☰)
+### Four Factors (Dean Oliver)
 
-During the match, data is fetched from the Flashscore stats tab every 30 seconds. The panel displays:
+| Metrik | Formül | Anlam |
+|--------|--------|-------|
+| eFG% | `(FGM + 0.5 × 3PM) / FGA` | 3'lük değeri hesaba katan şut verimliliği |
+| TOV% | `TOV / (FGA + 0.44×FTA + TOV)` | Top kaybı oranı |
+| ORB% | `ORB / (ORB + opp_DRB)` | Hücum ribaundu yakalama oranı |
+| FTR  | `FTA / FGA` | Serbest atış üretim oranı |
 
-### Four Factors Radar (Dean Oliver)
+### Verimlilik
 
-| Metric | Formula | Meaning |
-|--------|---------|---------|
-| eFG% | `(FGM + 0.5 × 3PM) / FGA` | Shooting efficiency accounting for the value of 3-pointers |
-| TOV% | `TOV / (FGA + 0.44×FTA + TOV)` | Turnover rate — lower is better |
-| ORB% | `ORB / (ORB + opp_DRB)` | Offensive rebound capture rate |
-| FTR  | `FTA / FGA` | Free throw generation rate |
-
-### Efficiency Bar
-
-| Metric | Formula |
-|--------|---------|
-| OffRtg | `100 × (pts / poss)` |
-| DefRtg | `100 × (opp_pts / opp_poss)` |
+| Metrik | Formül |
+|--------|--------|
+| OffRtg | `100 × (pts / avgPoss)` |
+| DefRtg | Rakibin OffRtg'si |
 | NetRtg | `OffRtg − DefRtg` |
+| TS%    | `pts / (2 × (FGA + 0.44 × FTA))` |
 
-### Shot Type Distribution
+### Şut Haritası
+2'lik / 3'lük / Serbest Atış — isabet ve ıskalama katmanlı bar grafiği.
 
-2-pointer / 3-pointer / Free Throw — layered bar chart showing makes and misses.
+### Hücum/Savunma
+Tahmini hücum sayısı: `FGA − ORB + TOV + 0.44 × FTA`
 
-### Possession Share
+### İstatistikler
+Flashscore istatistik sekmesindeki ham veriler.
 
-Estimated possession share using: `poss ≈ FGA − ORB + TOV + 0.44 × FTA`
+### Isı Haritası
+Periyot × Dakika canvas bazlı ısı haritası — her takım için ayrı, sayı yok sadece yoğunluk rengi.
+
+### Parametreler
+Tahmin motoru sekmesi:
+
+- **Periyot temposu:** P1/P2/P3/P4 başına atılan sayı barları
+- **Düzenli Düşüş deseni:** P1 > P2 ise P3 > P4 beklentisi analizi
+- **3. Periyot 5. Dakika Tahmin Motoru:** Q3 dk5'ten itibaren kilidi açılır
+
+#### Tahmin Formülü
+
+```
+1. Ham projeksiyon  = (Q3dk5 kümülatif toplam / 25) × 40
+2. Kalan gereksinim = projeksiyon - Q3dk5 toplam
+3. Pencere (Q2dk5 → Q3dk5, 10 dk) hızı vs kalan (15 dk) hızı karşılaştırması
+   → Pencere hızı > kalan hızı  ⟹  Üst ↑
+   → Pencere hızı < kalan hızı  ⟹  Alt ↓
+4. DD düzeltmesi (aktifse): final = projeksiyon - (P1 + P2 ortalama) / 4
+```
 
 ---
 
-## Technologies
+## Teknik Notlar
 
-| Package | Version | Usage |
-|---------|---------|-------|
-| express | ^5.2 | HTTP server, static file serving |
-| socket.io | ^4.8 | Real-time data transfer |
-| puppeteer | ^24 | Headless Chrome for Flashscore scraping |
-| chart.js | 4.4.2 (CDN) | Radar, bar, stacked bar, doughnut, line charts |
+**Skor hesaplama** (`gameState.js`): Flashscore kümülatif skor yayınlar. Dakikaya düşen sayıyı hesaplamak için `lastHomeSeen` / `lastAwaySeen` baseline takibi yapılır. Maç ortasından başlanırsa ilk güncelleme baseline olarak kaydedilir, hücre 0 kalır.
+
+**İstatistik çözümleme** (`computeMetrics`): Flashscore stat etiketleri maç türüne ve dile göre değişebilir. `findStat` fonksiyonu Türkçe/İngilizce anahtar kelimelerle eşleşme dener. "Alan Golü" = toplam FG (2'lik değil), `resolveFg()` bunu otomatik ayırt eder.
+
+**Puppeteer bulut:** `PUPPETEER_EXECUTABLE_PATH` env değişkeni set edilirse sistem Chromium'unu kullanır, aksi hâlde kendi indirdiği Chrome'u kullanır.
 
 ---
 
-## Technical Notes
+## Kullanılan Teknolojiler
 
-**Score calculation algorithm** (`gameState.js`): Flashscore broadcasts cumulative scores. To determine points scored in a specific minute, `lastHomeSeen` / `lastAwaySeen` baseline tracking is used. Multiple updates within the same minute are overwritten; delta calculation is applied on minute transitions.
-
-**Stats keyword matching** (`computeMetrics`): Flashscore stat labels may vary by match type and language. When a match fails, the browser console will show a `[basketscrape] Stat names:` log for debugging.
+| Paket | Versiyon | Kullanım |
+|-------|----------|---------|
+| express | ^5.2 | HTTP sunucu, statik dosya servisi |
+| socket.io | ^4.8 | Gerçek zamanlı veri transferi |
+| puppeteer | ^24 | Headless Chrome ile Flashscore scraping |
+| chart.js | 4.4.2 (CDN) | Çizgi, radar, bar, doughnut grafikleri |
