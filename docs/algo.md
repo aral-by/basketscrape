@@ -1,146 +1,145 @@
-# Canlı Basketbol Maçı Scrape Algoritması
+# Live Basketball Match Scrape Algorithm
 
-## 1. Başlangıç Süreci
+## 1. Startup Process
 
-- Kullanıcı maç linkini tanımlar.
-- Scrape servisi, maç başlamadan önce çalışmaz.
-- Bunun yerine sistem:
-  - Her 3 saniyede bir sayfayı yeniler.
-  - Maç durumunu kontrol eder.
-- Kontrol edilen veri:
-  - Periyot bilgisi (örnek: `1th Quarter` veya `0`)
-- Eğer periyot:
-  - `0` ise → maç başlamamıştır, kontrol devam eder.
-  - `1th Quarter` olduğunda → maç başlamış kabul edilir.
-- Bu noktada:
-  - Ana scrape servisi başlatılır.
+- User submits a match URL.
+- The scraper does not start immediately — it waits for the match to begin.
+- While waiting, the system:
+  - Reloads the page every 3 seconds.
+  - Checks the match status.
+- The value checked: period text (e.g. `1st Quarter` or blank/`0`)
+- If period is blank or zero → match has not started, keep polling.
+- Once a valid period is detected → match has started, launch the main scrape loop.
 
 ---
 
-## 2. Ana Scrape Servisi
+## 2. Main Scrape Loop
 
-- Servis her 2 saniyede bir veri çeker.
-- Çekilen veriler:
-  - Maç zamanı / durumu (örnek: `4th Quarter 9'`)
-  - Skor (örnek: `87 - 75`)
-- Bu veriler ayrı değişkenlere atanır.
-
----
-
-## 3. Veri Yapısı
-
-- Başlangıçta 40 hücrelik bir dizi oluşturulur.
-  - 4 periyot × 10 dakika = 40 dakika
-- Uzatma durumunda dizi dinamik olarak genişler.
-  - Her uzatma periyodu +5 hücre ekler.
-  - Overflow kontrolü zorunludur.
-- Her hücre ilgili dakikada atılan sayıları temsil eder.
+- Runs every 2 seconds.
+- Data collected each tick:
+  - Match time / status (e.g. `4th Quarter 9'`)
+  - Score (e.g. `87 - 75`)
+- Values are parsed into separate typed variables.
 
 ---
 
-## 4. Dakika Bazlı Skor Hesaplama
+## 3. Data Structure
 
-### 4.1 Temel Formül
-
-Tüm dakikalar (ilk dakika dahil) aynı formülle hesaplanır:
-
-```
-n. dakika skoru = mevcut scoreboard toplamı - (n-1). dakikaya kadar olan kümülatif toplam
-```
-
-- İlk dakika için önceki kümülatif toplam `0` olduğundan scoreboard değeri direkt sonuç verir.
-- Ayrı bir özel durum kuralı gerekmez.
-
-### 4.2 Aynı Dakika İçinde Gelen Veriler
-
-- 2 saniyede bir veri geldiği için aynı dakika içinde birden fazla scrape oluşur.
-- Her yeni scrape, o dakikanın snapshot'ının **üzerine yazar** (toplanmaz).
-- Dakika bittiğinde o dakikadaki **en son snapshot** geçerli kabul edilir.
-
-```
-1. scrape → A:2  B:5   ← üzerine yazılır
-2. scrape → A:3  B:6   ← üzerine yazılır
-3. scrape → A:6  B:6   ← dakika biterken son değer → geçerli snapshot
-```
-
-> **Not:** Kümülatif skor hiçbir zaman azalmaz. Azalan bir değer scrape hatası olarak değerlendirilmeli ve göz ardı edilmelidir.
-
-### 4.3 Sonraki Dakikalar
-
-- 2. dakikadan itibaren scoreboard toplam (kümülatif) skoru gösterir, direkt alınamaz.
-- Doğru hesaplama:
-
-```
-n. dakika skoru = scoreboard toplamı - (n-1). dakikaya kadar olan kümülatif toplam
-```
+- A 40-cell array is created at startup.
+  - 4 quarters × 10 minutes = 40 minutes
+- Overtime expands the array dynamically.
+  - Each overtime period adds 5 cells.
+- Each cell represents points scored during that specific minute (not cumulative).
 
 ---
 
-## 5. Dakika Geçişi
+## 4. Minute-Level Score Calculation
 
-- Dakika değiştiğinde yeni hücreye yazım başlar.
-- Önceki dakika sabitlenir ve değişmez.
-- **Atlanan dakika kontrolü:** Scrape zamanlaması nedeniyle bir dakika atlanabilir.
-  - Dakika değişimi fark edildiğinde atlanmış dakikalar tespit edilir.
-  - Atlanmış hücreler bir önceki kümülatif skorla eşitlenir (o dakikada skor atılmadı kabul edilir).
+### 4.1 Core Formula
+
+All minutes use the same formula:
 
 ```
-Örnek:
-- 7. dakika snapshot alındı
-- Bir sonraki scrape'de 9. dakikaya geçildi
-- 8. dakika hücresi → önceki kümülatif ile doldurulur (fark = 0)
-- 9. dakika hücresi → normal formülle hesaplanır
+score[minute] = current_scoreboard − cumulative_at_end_of_previous_minute
+```
+
+- For the first minute, the previous cumulative is `0`, so the scoreboard value is used directly.
+- No special-case logic is needed for the first minute.
+
+### 4.2 Mid-Match Start Protection
+
+If the scraper connects while a match is already in progress (e.g. score is 66–75 at Q4 minute 5), the first update sets a **baseline** and the current cell is left at zero. No retroactive data is assumed.
+
+```
+First update received → store as baseline, cell = 0
+All subsequent updates → calculate delta from baseline
+```
+
+### 4.3 Multiple Updates Within the Same Minute
+
+Since data arrives every 2 seconds, multiple scrapes occur within a single minute. Each new scrape **overwrites** the current cell (does not accumulate).
+
+```
+scrape 1 → A:2  B:5   ← overwritten
+scrape 2 → A:3  B:6   ← overwritten
+scrape 3 → A:6  B:6   ← last snapshot before minute ends → stored
+```
+
+> **Note:** Cumulative scores never decrease. Any update where the score is lower than the last seen value is treated as a scrape error and discarded.
+
+### 4.4 Subsequent Minutes
+
+From minute 2 onward, the scoreboard shows a cumulative total, not the per-minute delta.
+
+```
+score[n] = scoreboard − last_seen_cumulative
 ```
 
 ---
 
-## 6. Periyot Normalizasyonu
+## 5. Minute Transition
 
-Scoreboard dakika bilgisi her periyotta `1'den 10'a` sıfırlanır. Hücre index hesabı için mutlak dakika kullanılmalıdır:
+- When the minute changes, writing moves to the new cell.
+- The previous cell is finalized and never modified again.
+- **Skipped minute detection:** Due to scrape timing, a minute may be missed.
+  - On transition, if `currentMinute > lastMinute + 1`, skipped cells are filled with `0`.
 
 ```
-mutlakDakika = (periyot - 1) * 10 + dakika
-hücreIndex   = mutlakDakika - 1
+Example:
+- Snapshot at minute 7
+- Next scrape: minute 9
+- Minute 8 cell → filled with 0 (assumed no score)
+- Minute 9 cell → calculated normally
 ```
-
-Örnek:
-
-| Periyot | Dakika | Mutlak Dakika | Hücre Index |
-|---------|--------|---------------|-------------|
-| 1       | 3      | 3             | 2           |
-| 2       | 3      | 13            | 12          |
-| 3       | 7      | 27            | 26          |
-| 4       | 10     | 40            | 39          |
 
 ---
 
-## 7. Periyot ve Maç Durumu Kontrolü
+## 6. Period Normalization
 
-Scrape sırasında karşılaşılabilecek durumlar:
+Flashscore resets the minute counter from 1 to 10 each quarter. An absolute minute is computed for array indexing:
 
-- Periyot arası mola
-- Maçın henüz başlamamış olması
-- Maçın bitmiş olması
+```
+absoluteMinute = (period - 1) × 10 + minute
+cellIndex      = absoluteMinute - 1
+```
 
-Bu durumlar yalnızca periyot yazısından kontrol edilir. Periyot bilgisi normalize edilerek maçın devam edip etmediği anlaşılır.
+| Period | Minute | Absolute Minute | Cell Index |
+|--------|--------|-----------------|------------|
+| 1      | 3      | 3               | 2          |
+| 2      | 3      | 13              | 12         |
+| 3      | 7      | 27              | 26         |
+| 4      | 10     | 40              | 39         |
 
 ---
 
-## 8. Genel Akış
+## 7. Match State Checks
+
+States encountered during scraping:
+
+- Quarter break (halftime / between quarters)
+- Match not yet started
+- Match finished
+
+All states are determined solely from the period text string. The scraper parses it and decides whether to continue, pause, or stop.
+
+---
+
+## 8. Full Flow
 
 ```
-1. Kullanıcı link girer
-2. Her 3 sn'de maç başlangıcı kontrol edilir
-3. "1th Quarter" algılandığında ana servis başlar
-4. Her 2 sn'de veri çekilir:
-   a. (periyot, dakika, homeScore, awayScore) parse edilir
-   b. mutlakDakika = (periyot - 1) * 10 + dakika
-   c. Dakika geçtiyse:
-      - Atlanmış dakikalar varsa doldur
-      - Hücre[mutlakDakika - 1] = scoreboard - öncekiKümülatif
-      - öncekiKümülatif = scoreboard
-   d. Aynı dakikadaysa snapshot üzerine yaz
-5. Uzatmaya gidilirse dizi genişletilir
-6. Periyot bilgisine göre maç durumu kontrol edilir
-7. Maç bittiğinde servis durdurulur
+1. User submits match URL
+2. Poll every 3s for match start (valid period text)
+3. On match start, launch main scrape loop
+4. Every 2s:
+   a. Parse (period, minute, homeScore, awayScore)
+   b. absoluteMinute = (period - 1) × 10 + minute
+   c. If first update ever → set baseline, leave cell at 0
+   d. If same minute → overwrite cell with (scoreboard - prevCumulative)
+   e. If new minute →
+        fill any skipped cells with 0
+        cell[absoluteMinute - 1] = scoreboard - lastSeen
+        update lastSeen = scoreboard
+5. If overtime → expand array by 5 cells
+6. Check period text each tick for halftime / finished state
+7. On match end → emit final state, close browser
 ```

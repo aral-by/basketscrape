@@ -135,6 +135,27 @@ Prediction engine tab:
 
 ---
 
+## How the Algorithm Works
+
+The core challenge: Flashscore broadcasts **cumulative** scores, not per-minute deltas. The algorithm converts them in real time.
+
+```
+scoreboard at minute 7 = 54
+scoreboard at minute 6 = 49
+→ minute 7 scored = 54 − 49 = 5 points
+```
+
+**Key behaviors:**
+
+- **Mid-match start protection** — if the scraper connects at Q4 minute 5 with score 66–75, that update becomes the baseline. The cell stays at 0. No retroactive data is fabricated.
+- **Same-minute overwrites** — multiple scrapes within one minute overwrite the cell (not add). The last snapshot before minute change is used.
+- **Skipped minutes** — if a minute is missed due to timing, it is filled with 0.
+- **Overtime** — the 40-cell array expands by 5 cells per overtime period.
+
+Full algorithm documentation: [`docs/algo.md`](docs/algo.md)
+
+---
+
 ## Technical Notes
 
 **Score calculation** (`gameState.js`): Flashscore broadcasts cumulative scores. `lastHomeSeen` / `lastAwaySeen` baseline tracking is used to derive per-minute deltas. When a scraper starts mid-match, the first update sets the baseline and the cell stays at zero — no retroactive data is assumed.
