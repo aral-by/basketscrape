@@ -1347,14 +1347,15 @@
         <div id="predOpen" style="display:none">
           <div class="pred-content">
             <table class="pred-params-table">
-              <tr><td>P1 toplam (gerçekleşen)</td><td id="ppQ1"></td></tr>
-              <tr><td>P2 toplam (gerçekleşen)</td><td id="ppQ2"></td></tr>
-              <tr><td>P3 ilk 5 dk toplam</td><td id="ppQ3h5"></td></tr>
+              <tr><td>Q3 dk5 kümülatif toplam</td><td id="ppAtQ3min5"></td></tr>
+              <tr><td>Ham projeksiyon (÷25 × 40)</td><td id="ppProjected"></td></tr>
+              <tr><td>Kalan 15 dk gereksinim</td><td id="ppRemaining"></td></tr>
+              <tr><td>Pencere (Q2dk5 → Q3dk5 / 10dk)</td><td id="ppWindow"></td></tr>
+              <tr><td>Pencere hızı vs kalan hız</td><td id="ppPaceComp"></td></tr>
               <tr><td>Düzenli Düşüş deseni</td><td id="ppDD"></td></tr>
-              <tr><td>Anlık skor farkı</td><td id="ppDiff"></td></tr>
-              <tr><td>Tahmini P3 sonu toplamı</td><td id="ppQ3est"></td></tr>
-              <tr><td>Tahmini P4 toplamı</td><td id="ppQ4est"></td></tr>
-              <tr><td>Tahmini maç sonu skoru</td><td id="ppFinal"></td></tr>
+              <tr><td>DD düzeltmesi (P1+P2 ort ÷ 4)</td><td id="ppDDAdj"></td></tr>
+              <tr><td>Final tahmin (toplam)</td><td id="ppFinalTotal"></td></tr>
+              <tr><td>Tahmini skor dağılımı</td><td id="ppFinal"></td></tr>
             </table>
 
             <div class="pred-result neutral" id="predResult">
@@ -1568,66 +1569,78 @@
       if (lockedEl) lockedEl.style.display = 'none';
       if (openEl)   openEl.style.display   = '';
 
-      // P3 ilk 5 dakika toplamı (mutlak 21-25)
-      let q3h5 = 0;
-      for (let i = 20; i < 25; i++) q3h5 += (homeMinutes[i]||0) + (awayMinutes[i]||0);
+      // ── 1. Q3 dk5 anındaki kümülatif toplam (her iki takım, mutlak dk 1-25) ──
+      const atQ3min5 = homeMinutes.slice(0, 25).reduce((a,b)=>a+b,0)
+                     + awayMinutes.slice(0, 25).reduce((a,b)=>a+b,0);
 
-      // Tahmini P3 sonu = ilk 5 dakikanın 2 katı (tempo projeksiyon)
-      const q3Est = q3h5 * 2;
+      // ── 2. Doğru orantı: 25 dk → 40 dk ──
+      const projected = Math.round(atQ3min5 / 25 * 40);
 
-      // Tahmini P4: eğer DD deseni varsa P3'ten düşük, yoksa P3 ile eşit varsay
-      const q4Est = dd12 ? Math.round(q3Est * 0.88) : Math.round(q3Est * 1.0);
+      // ── 3. Kalan 15 dakikada gerekli sayı ──
+      const remaining = projected - atQ3min5;
 
-      // Şimdiye kadarki kümülatif skor (mutlak dakika bazında)
+      // ── 4. Pencere: Q2 dk5 → Q3 dk5 (mutlak dk 15-25 = 10 dakika) ──
+      let windowScore = 0;
+      for (let i = 14; i < 25; i++) {
+        windowScore += (homeMinutes[i]||0) + (awayMinutes[i]||0);
+      }
+
+      // ── 5. Hız karşılaştırması (dk başına normalize) ──
+      const windowRate   = windowScore / 10;   // sayı/dk (pencere)
+      const remainRate   = remaining   / 15;   // sayı/dk (kalan)
+      const isOver       = windowRate > remainRate;
+
+      // ── 6. DD düzeltmesi: P1+P2 ortalaması ÷ 4 ──
+      const p1p2avg = (tQ[0] + tQ[1]) / 2;
+      const ddAdj   = dd12 ? Math.round(p1p2avg / 4) : 0;
+      const finalTotal = projected - ddAdj;
+
+      // ── 7. Takım bazlı dağılım ──
       const hmCum = homeMinutes.slice(0, lastAbsoluteMinute).reduce((a,b)=>a+b,0);
       const amCum = awayMinutes.slice(0, lastAbsoluteMinute).reduce((a,b)=>a+b,0);
       const diff  = hmCum - amCum;
+      const ratio = (hmCum + amCum) > 0 ? hmCum / (hmCum + amCum) : 0.5;
+      const homeFinalEst = Math.round(finalTotal * ratio);
+      const awayFinalEst = finalTotal - homeFinalEst;
 
-      // Kalan sayı tahmini (P3 kalan 5 dk + P4)
-      const remaining = (q3Est - q3h5) + q4Est;
-      const homeFinalEst = hmCum + Math.round(remaining * (hmCum / (hmCum + amCum + 0.001)));
-      const awayFinalEst = amCum + Math.round(remaining * (amCum / (hmCum + amCum + 0.001)));
-
-      // DOM güncelle
+      // ── DOM güncelle ──
       const hn2 = homeName || 'Ev';
-      const an2 = awayName || 'Dep';
-      document.getElementById('ppQ1').textContent    = tQ[0];
-      document.getElementById('ppQ2').textContent    = tQ[1];
-      document.getElementById('ppQ3h5').textContent  = q3h5;
+      document.getElementById('ppAtQ3min5').textContent = atQ3min5;
+      document.getElementById('ppProjected').textContent = projected;
+      document.getElementById('ppRemaining').textContent = `${remaining} sayı`;
+      document.getElementById('ppWindow').textContent    = `${windowScore} sayı`;
+      document.getElementById('ppPaceComp').textContent  =
+        `${windowRate.toFixed(1)} vs ${remainRate.toFixed(1)} sayı/dk → ${isOver ? 'Üst ↑' : 'Alt ↓'}`;
       document.getElementById('ppDD').textContent    = dd12 ? 'Evet (aktif)' : 'Hayır';
-      document.getElementById('ppDiff').textContent  = (diff > 0 ? '+' : '') + diff + ` (${hn2} ${diff > 0 ? 'önde' : diff < 0 ? 'geride' : 'eşit'})`;
-      document.getElementById('ppQ3est').textContent = q3Est;
-      document.getElementById('ppQ4est').textContent = q4Est;
+      document.getElementById('ppDDAdj').textContent = dd12 ? `-${ddAdj}` : '0 (DD yok)';
+      document.getElementById('ppFinalTotal').textContent = finalTotal;
       document.getElementById('ppFinal').textContent = `${homeFinalEst} - ${awayFinalEst}`;
 
-      // Sonuç kutusu
+      // ── Sonuç kutusu ──
       const resultEl  = document.getElementById('predResult');
       const iconEl    = document.getElementById('predIcon');
       const labelEl   = document.getElementById('predLabel');
       const explainEl = document.getElementById('predExplain');
 
-      const totalFinal = homeFinalEst + awayFinalEst;
-      const prevAvg    = (tQ[0] + tQ[1]) / 2;
-
-      // Güven skoru: ne kadar veri var ve desen tutarlı mı?
+      // Güven skoru
       let confidence = 50;
-      if (dd12) confidence += 20;             // P1>P2 doğrulandı
-      if (tQ[2] > 0) confidence += 10;        // P3 başladı, data var
-      if (Math.abs(diff) > 5) confidence += 10; // net lider var
-      if (lastAbsoluteMinute >= 30) confidence += 10; // P3 tamamlandı
-      confidence = Math.min(confidence, 95);
+      if (dd12)                      confidence += 15; // DD deseni aktif
+      if (tQ[2] > 0)                 confidence += 10; // P3 verisi var
+      if (Math.abs(diff) > 5)        confidence += 10; // net lider var
+      if (lastAbsoluteMinute >= 30)  confidence += 10; // P3 tamamlandı
+      if (windowScore > 0)           confidence += 5;  // pencere verisi sağlam
+      confidence = Math.min(confidence, 92);
 
-      let cls, icon, label, explain;
-      if (totalFinal > prevAvg * 3.8) {
-        cls = 'high'; icon = '📈'; label = 'Yüksek Tempo Bekleniyor';
-        explain = `Tahmini maç sonu: ${homeFinalEst}-${awayFinalEst} (toplam ~${totalFinal}). Mevcut tempo yüksek seyrediyor.`;
-      } else if (totalFinal < prevAvg * 3.2) {
-        cls = 'low'; icon = '📉'; label = 'Düşük Tempo Bekleniyor';
-        explain = `Tahmini maç sonu: ${homeFinalEst}-${awayFinalEst} (toplam ~${totalFinal}). ${dd12?'Düzenli düşüş deseni aktif.':'Tempo yavaşladı.'}`;
-      } else {
-        cls = 'neutral'; icon = '📊'; label = 'Orta Tempo';
-        explain = `Tahmini maç sonu: ${homeFinalEst}-${awayFinalEst} (toplam ~${totalFinal}). Belirgin bir eğilim yok.`;
-      }
+      const cls     = isOver ? 'high' : 'low';
+      const icon    = isOver ? '📈' : '📉';
+      const label   = isOver ? 'Üst Bekleniyor' : 'Alt Bekleniyor';
+      const explain = isOver
+        ? `Pencere hızı (${windowRate.toFixed(1)}/dk) > kalan gereksinim (${remainRate.toFixed(1)}/dk) — tempo sürdürülebilir.`
+            + (dd12 ? ` DD düzeltmesi uygulandı: -${ddAdj}.` : '')
+            + ` Tahmini maç sonu: ${homeFinalEst}-${awayFinalEst} (toplam ${finalTotal}).`
+        : `Pencere hızı (${windowRate.toFixed(1)}/dk) < kalan gereksinim (${remainRate.toFixed(1)}/dk) — tempo yavaşlıyor.`
+            + (dd12 ? ` DD düzeltmesi uygulandı: -${ddAdj}.` : '')
+            + ` Tahmini maç sonu: ${homeFinalEst}-${awayFinalEst} (toplam ${finalTotal}).`;
 
       resultEl.className  = `pred-result ${cls}`;
       iconEl.textContent  = icon;
