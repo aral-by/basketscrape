@@ -11,6 +11,9 @@ const awayTbody     = document.getElementById('awayTbody');
 const homeTbody40   = document.getElementById('homeTbody40');
 const awayTbody40   = document.getElementById('awayTbody40');
 const totalTbody    = document.getElementById('totalTbody');
+const homeTbodyEG10  = document.getElementById('homeTbodyEG10');
+const awayTbodyEG10  = document.getElementById('awayTbodyEG10');
+const totalTbodyEG10 = document.getElementById('totalTbodyEG10');
 
 // ── Side Panel ───────────────────────────────────────────────────────────────
 const menuBtn       = document.getElementById('menuBtn');
@@ -171,6 +174,94 @@ function makeTotalCell(homeMinutes, awayMinutes, absoluteMin, lastAbsoluteMinute
   if (absoluteMin === lastAbsoluteMinute) { td.classList.add('active-cell'); if (val > 0) td.textContent = val; }
   else if (absoluteMin < lastAbsoluteMinute) { if (val > 0) { td.classList.add('has-score'); td.textContent = val; } }
   return td;
+}
+
+// ── EG10 Table (per-period cumulative × 10) ──────────────────────────────────
+// Her periyot kendi 10 dakikası içinde bağımsız hesaplanır:
+// minute[m] hücresi = (o periyodun 1. dakikadan m. dakikaya kadar toplamı) × 10
+function renderEg10Tbody(tbody, minutes, totalCells, lastAbsoluteMinute) {
+  tbody.innerHTML = '';
+  for (let period = 1; period <= 4; period++) {
+    const tr = document.createElement('tr');
+    const lbl = document.createElement('td');
+    lbl.className = 'period-label'; lbl.textContent = period + '. Çeyrek';
+    tr.appendChild(lbl);
+    const start = (period - 1) * 10;
+    let cum = 0;
+    for (let min = 1; min <= 10; min++) {
+      const absoluteMin = start + min;
+      cum += (minutes[absoluteMin - 1] ?? 0);
+      tr.appendChild(makeEg10Cell(cum * 10, absoluteMin, lastAbsoluteMinute));
+    }
+    tbody.appendChild(tr);
+  }
+  if (totalCells > 40) {
+    const otCount = Math.ceil((totalCells - 40) / 5);
+    for (let ot = 1; ot <= otCount; ot++) {
+      const tr = document.createElement('tr');
+      const lbl = document.createElement('td');
+      lbl.className = 'period-label'; lbl.textContent = ot + '. Uzatma';
+      tr.appendChild(lbl);
+      let cum = 0;
+      for (let min = 1; min <= 10; min++) {
+        if (min <= 5) {
+          const absoluteMin = 40 + (ot - 1) * 5 + min;
+          cum += (minutes[absoluteMin - 1] ?? 0);
+          tr.appendChild(makeEg10Cell(cum * 10, absoluteMin, lastAbsoluteMinute));
+        } else {
+          const td = document.createElement('td'); td.className = 'empty-cell'; td.textContent = '–'; tr.appendChild(td);
+        }
+      }
+      tbody.appendChild(tr);
+    }
+  }
+}
+
+function makeEg10Cell(val, absoluteMin, lastAbsoluteMinute) {
+  const td = document.createElement('td');
+  td.className = 'eg10-cell';
+  if (absoluteMin === lastAbsoluteMinute) { td.classList.add('active-cell'); if (val > 0) td.textContent = val; }
+  else if (absoluteMin < lastAbsoluteMinute) { if (val > 0) { td.classList.add('has-score'); td.textContent = val; } }
+  return td;
+}
+
+// Ev + deplasman EG10 değerlerinin toplamı — aynı kümülatif × 10 mantığı, iki takımın o dakikaki puanları toplanarak.
+function renderEg10TotalTbody(tbody, homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute) {
+  tbody.innerHTML = '';
+  for (let period = 1; period <= 4; period++) {
+    const tr = document.createElement('tr');
+    const lbl = document.createElement('td');
+    lbl.className = 'period-label'; lbl.textContent = period + '. Çeyrek';
+    tr.appendChild(lbl);
+    const start = (period - 1) * 10;
+    let cum = 0;
+    for (let min = 1; min <= 10; min++) {
+      const absoluteMin = start + min;
+      cum += (homeMinutes[absoluteMin - 1] ?? 0) + (awayMinutes[absoluteMin - 1] ?? 0);
+      tr.appendChild(makeEg10Cell(cum * 10, absoluteMin, lastAbsoluteMinute));
+    }
+    tbody.appendChild(tr);
+  }
+  if (totalCells > 40) {
+    const otCount = Math.ceil((totalCells - 40) / 5);
+    for (let ot = 1; ot <= otCount; ot++) {
+      const tr = document.createElement('tr');
+      const lbl = document.createElement('td');
+      lbl.className = 'period-label'; lbl.textContent = ot + '. Uzatma';
+      tr.appendChild(lbl);
+      let cum = 0;
+      for (let min = 1; min <= 10; min++) {
+        if (min <= 5) {
+          const absoluteMin = 40 + (ot - 1) * 5 + min;
+          cum += (homeMinutes[absoluteMin - 1] ?? 0) + (awayMinutes[absoluteMin - 1] ?? 0);
+          tr.appendChild(makeEg10Cell(cum * 10, absoluteMin, lastAbsoluteMinute));
+        } else {
+          const td = document.createElement('td'); td.className = 'empty-cell'; td.textContent = '–'; tr.appendChild(td);
+        }
+      }
+      tbody.appendChild(tr);
+    }
+  }
 }
 
 // ── Stats Parsing & Metrics ──────────────────────────────────────────────────
@@ -572,6 +663,9 @@ socket.on('scoreUpdate', (state) => {
   renderTbody(homeTbody40, homeMinutes, totalCells, lastAbsoluteMinute, 40);
   renderTbody(awayTbody40, awayMinutes, totalCells, lastAbsoluteMinute, 40);
   renderTotalTbody(totalTbody, homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute);
+  renderEg10Tbody(homeTbodyEG10, homeMinutes, totalCells, lastAbsoluteMinute);
+  renderEg10Tbody(awayTbodyEG10, awayMinutes, totalCells, lastAbsoluteMinute);
+  renderEg10TotalTbody(totalTbodyEG10, homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute);
   updateChart(homeMinutes, awayMinutes, lastAbsoluteMinute, homeName, awayName);
   updateTotalChart(homeMinutes, awayMinutes, lastAbsoluteMinute);
   if (stats) {
@@ -609,6 +703,9 @@ socket.on('matchEnd', (result) => {
     renderTbody(homeTbody40, homeMinutes, totalCells, lastAbsoluteMinute, 40);
     renderTbody(awayTbody40, awayMinutes, totalCells, lastAbsoluteMinute, 40);
     renderTotalTbody(totalTbody, homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute);
+    renderEg10Tbody(homeTbodyEG10, homeMinutes, totalCells, lastAbsoluteMinute);
+    renderEg10Tbody(awayTbodyEG10, awayMinutes, totalCells, lastAbsoluteMinute);
+    renderEg10TotalTbody(totalTbodyEG10, homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute);
     updateChart(homeMinutes, awayMinutes, lastAbsoluteMinute, homeName, awayName);
     updateTotalChart(homeMinutes, awayMinutes, lastAbsoluteMinute);
     if (result.state.stats) {

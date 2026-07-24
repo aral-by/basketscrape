@@ -372,6 +372,7 @@
     .table-card.home  { border-color: var(--home-bdr); }
     .table-card.away  { border-color: var(--away-bdr); }
     .table-card.total { border-color: var(--total-bdr); }
+    .table-card.eg10  { border-color: rgba(251,191,36,0.3); }
 
     .table-card-header {
       padding: 9px 14px; font-size: 11px; font-weight: 600;
@@ -380,6 +381,7 @@
     .home  .table-card-header { color: var(--home);  background: var(--home-bg);  border-bottom-color: var(--home-bdr); }
     .away  .table-card-header { color: var(--away);  background: var(--away-bg);  border-bottom-color: var(--away-bdr); }
     .total .table-card-header { color: var(--total); background: var(--total-bg); border-bottom-color: var(--total-bdr); }
+    .eg10  .table-card-header { color: #fbbf24; background: rgba(251,191,36,0.08); border-bottom-color: rgba(251,191,36,0.3); }
 
     .table-scroll { overflow-x: auto; padding: 8px 6px; }
 
@@ -414,6 +416,10 @@
     td.total-cell { color: rgba(255,255,255,0.18); }
     td.total-cell.has-score { color: var(--total); font-weight: 600; }
     td.total-cell.active-cell { background: var(--total-bg); border: 1px solid var(--total); color: var(--total) !important; }
+
+    td.eg10-cell { color: rgba(255,255,255,0.18); }
+    td.eg10-cell.has-score { color: #fbbf24; font-weight: 600; }
+    td.eg10-cell.active-cell { background: rgba(251,191,36,0.08); border: 1px solid #fbbf24; color: #fbbf24 !important; }
 
     /* ── Chart Cards ─── */
     .charts-row { display: flex; flex-direction: column; gap: 14px; }
@@ -903,6 +909,49 @@
                 <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
               </tr></thead>
               <tbody id="awayTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">EG10</div>
+      <div class="tables-row three-col" style="margin-bottom:20px">
+        <div class="table-card eg10">
+          <div class="table-card-header" id="homeTitleEG10">Ev Sahibi (EG10)</div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr>
+                <th>Periyot</th>
+                <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+              </tr></thead>
+              <tbody id="homeTbodyEG10"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="table-card eg10">
+          <div class="table-card-header" id="totalTitleEG10">Toplam (EG10)</div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr>
+                <th>Periyot</th>
+                <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+              </tr></thead>
+              <tbody id="totalTbodyEG10"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="table-card eg10">
+          <div class="table-card-header" id="awayTitleEG10">Deplasman (EG10)</div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr>
+                <th>Periyot</th>
+                <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                <th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+              </tr></thead>
+              <tbody id="awayTbodyEG10"></tbody>
             </table>
           </div>
         </div>
