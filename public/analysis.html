@@ -589,7 +589,7 @@
       padding: 32px 16px; gap: 8px;
       color: var(--dim); font-size: 12px; text-align: center;
     }
-    .pred-locked .lock-icon { font-size: 24px; margin-bottom: 4px; }
+    .pred-locked .lock-icon { width: 26px; height: 26px; margin-bottom: 4px; color: var(--dim); }
     .pred-locked .lock-sub { font-size: 11px; color: var(--dim); }
     .pred-content { padding: 14px 16px; }
 
@@ -609,7 +609,10 @@
     .pred-result.high   { background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25); }
     .pred-result.low    { background: rgba(251,191,36,0.08);  border: 1px solid rgba(251,191,36,0.25);  }
     .pred-result.neutral{ background: rgba(113,113,122,0.08); border: 1px solid rgba(113,113,122,0.25); }
-    .pred-result-icon { font-size: 22px; flex-shrink: 0; }
+    .pred-result-icon { width: 20px; height: 20px; flex-shrink: 0; color: var(--dim); }
+    .pred-result.high    .pred-result-icon { color: #34d399; }
+    .pred-result.low     .pred-result-icon { color: #fbbf24; }
+    .pred-result.neutral .pred-result-icon { color: #a1a1aa; }
     .pred-result-body strong { display: block; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
     .pred-result-body span   { font-size: 11px; color: var(--dim); line-height: 1.5; }
 
@@ -1381,95 +1384,135 @@
       <!-- Skor Bazlı Tahminler -->
       <div class="section-label" style="margin-bottom:8px">Makine Öğrenmesi Sonuçları</div>
 
-      <!-- Tahmin A — Yarı Zamanı Kesin Karar -->
-      <div class="pred-box">
-        <div class="pred-box-header">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--home)">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          <span class="pred-box-title">Tahmin A — Yarı Zamanı Kesin Karar (2. Periyot 10. Dakika Sonrası)</span>
-        </div>
+      <div class="tables-row" style="align-items:start">
 
-        <!-- Kilit durumu (mutlak dk 20'e kadar) -->
-        <div id="predALocked">
-          <div class="pred-locked">
-            <div class="lock-icon">🔒</div>
-            <div>Tahmin için 2. periyot 10. dakikası (devre arası) bekleniyor</div>
-            <div class="lock-sub" id="predACountdown">Mevcut: Dakika —</div>
+        <!-- Tahmin A — Yarı Zamanı Kesin Karar -->
+        <div class="pred-box">
+          <div class="pred-box-header">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--home)">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span class="pred-box-title">Tahmin A — Yarı Zamanı Kesin Karar (2. Periyot 10. Dakika Sonrası)</span>
           </div>
-        </div>
 
-        <!-- Açık durum (mutlak dk 20 sonrası) -->
-        <div id="predAOpen" style="display:none">
-          <div class="pred-content">
-            <table class="pred-params-table">
-              <tr><td>1. periyot toplamı</td><td id="paQ1"></td></tr>
-              <tr><td>2. periyot toplamı</td><td id="paQ2"></td></tr>
-              <tr><td>İlk yarı toplamı (dk 1-20)</td><td id="paHalfTotal"></td></tr>
-              <tr><td>Tempo eğilimi (P2 vs P1)</td><td id="paTrend"></td></tr>
-              <tr><td>Projeksiyon (yarı toplamı × 2)</td><td id="paProjected"></td></tr>
-            </table>
+          <!-- Kilit durumu (mutlak dk 20'e kadar) -->
+          <div id="predALocked">
+            <div class="pred-locked">
+              <div class="lock-icon"><svg class="icon" viewBox="0 0 24 24" width="26" height="26"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+              <div>Tahmin için 2. periyot 10. dakikası (devre arası) bekleniyor</div>
+              <div class="lock-sub" id="predACountdown">Mevcut: Dakika —</div>
+            </div>
+          </div>
 
-            <div class="pred-result neutral" id="predAResult">
-              <div class="pred-result-icon" id="predAIcon">📊</div>
-              <div class="pred-result-body">
-                <strong id="predALabel">Veri toplanıyor…</strong>
-                <span id="predAExplain"></span>
+          <!-- Açık durum (mutlak dk 20 sonrası) -->
+          <div id="predAOpen" style="display:none">
+            <div class="pred-content">
+              <table class="pred-params-table">
+                <tr><td>1. periyot toplamı</td><td id="paQ1"></td></tr>
+                <tr><td>2. periyot toplamı</td><td id="paQ2"></td></tr>
+                <tr><td>İlk yarı toplamı (dk 1-20)</td><td id="paHalfTotal"></td></tr>
+                <tr><td>Tempo eğilimi (P2 vs P1)</td><td id="paTrend"></td></tr>
+              </table>
+
+              <!-- Faktör 1: MS Kazanan -->
+              <div class="pred-result neutral" id="predAWinnerResult">
+                <div class="pred-result-icon" id="predAWinnerIcon"><svg class="icon" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></div>
+                <div class="pred-result-body">
+                  <strong id="predAWinnerLabel">MS Kazanan — —</strong>
+                  <span id="predAWinnerExplain"></span>
+                </div>
+              </div>
+
+              <!-- Faktör 2: MS Toplam Skor -->
+              <div class="pred-result neutral">
+                <div class="pred-result-icon"><svg class="icon" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+                <div class="pred-result-body">
+                  <strong id="predATotalLabel">MS Toplam Skor — —</strong>
+                  <span id="predATotalExplain"></span>
+                </div>
+              </div>
+
+              <!-- Faktör 3: Alt/Üst -->
+              <div class="pred-result neutral" id="predAOUResult">
+                <div class="pred-result-icon" id="predAOUIcon"><svg class="icon" viewBox="0 0 24 24" width="20" height="20"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg></div>
+                <div class="pred-result-body">
+                  <strong id="predAOULabel">Alt/Üst — —</strong>
+                  <span id="predAOUExplain"></span>
+                </div>
+              </div>
+
+              <div class="pred-confidence">
+                <span class="pred-conf-label">Güven</span>
+                <div class="pred-conf-bar-wrap"><div class="pred-conf-bar" id="predAConfBar" style="width:0%"></div></div>
+                <span class="pred-conf-val" id="predAConfVal">—</span>
               </div>
             </div>
+          </div>
+        </div>
 
-            <div class="pred-confidence">
-              <span class="pred-conf-label">Güven</span>
-              <div class="pred-conf-bar-wrap"><div class="pred-conf-bar" id="predAConfBar" style="width:0%"></div></div>
-              <span class="pred-conf-val" id="predAConfVal">—</span>
+        <!-- Tahmin B — 3. Periyot Erken Tahmini -->
+        <div class="pred-box">
+          <div class="pred-box-header">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--away)">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span class="pred-box-title">Tahmin B — 3. Periyot Erken Tahmini (3. Periyot 5. Dakika Sonrası)</span>
+          </div>
+
+          <!-- Kilit durumu (mutlak dk 25'e kadar) -->
+          <div id="predBLocked">
+            <div class="pred-locked">
+              <div class="lock-icon"><svg class="icon" viewBox="0 0 24 24" width="26" height="26"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+              <div>Tahmin için 3. periyot 5. dakikası bekleniyor</div>
+              <div class="lock-sub" id="predBCountdown">Mevcut: Dakika —</div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Tahmin B — 3. Periyot Erken Tahmini -->
-      <div class="pred-box">
-        <div class="pred-box-header">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--away)">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          <span class="pred-box-title">Tahmin B — 3. Periyot Erken Tahmini (3. Periyot 5. Dakika Sonrası)</span>
-        </div>
+          <!-- Açık durum (mutlak dk 25 sonrası) -->
+          <div id="predBOpen" style="display:none">
+            <div class="pred-content">
+              <table class="pred-params-table">
+                <tr><td>Dk 1-25 kümülatif toplam</td><td id="pbCum25"></td></tr>
+                <tr><td>Genel ortalama hız (dk 1-25)</td><td id="pbOverallPace"></td></tr>
+                <tr><td>Güncel hız (son 10 dk, dk16-25)</td><td id="pbRecentPace"></td></tr>
+              </table>
 
-        <!-- Kilit durumu (mutlak dk 25'e kadar) -->
-        <div id="predBLocked">
-          <div class="pred-locked">
-            <div class="lock-icon">🔒</div>
-            <div>Tahmin için 3. periyot 5. dakikası bekleniyor</div>
-            <div class="lock-sub" id="predBCountdown">Mevcut: Dakika —</div>
-          </div>
-        </div>
+              <!-- Faktör 1: MS Kazanan -->
+              <div class="pred-result neutral" id="predBWinnerResult">
+                <div class="pred-result-icon" id="predBWinnerIcon"><svg class="icon" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></div>
+                <div class="pred-result-body">
+                  <strong id="predBWinnerLabel">MS Kazanan — —</strong>
+                  <span id="predBWinnerExplain"></span>
+                </div>
+              </div>
 
-        <!-- Açık durum (mutlak dk 25 sonrası) -->
-        <div id="predBOpen" style="display:none">
-          <div class="pred-content">
-            <table class="pred-params-table">
-              <tr><td>Dk 1-25 kümülatif toplam</td><td id="pbCum25"></td></tr>
-              <tr><td>Genel ortalama hız (dk 1-25)</td><td id="pbOverallPace"></td></tr>
-              <tr><td>Güncel hız (son 10 dk, dk16-25)</td><td id="pbRecentPace"></td></tr>
-              <tr><td>Projeksiyon (kalan 15 dk güncel hızla)</td><td id="pbProjected"></td></tr>
-            </table>
+              <!-- Faktör 2: MS Toplam Skor -->
+              <div class="pred-result neutral">
+                <div class="pred-result-icon"><svg class="icon" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+                <div class="pred-result-body">
+                  <strong id="predBTotalLabel">MS Toplam Skor — —</strong>
+                  <span id="predBTotalExplain"></span>
+                </div>
+              </div>
 
-            <div class="pred-result neutral" id="predBResult">
-              <div class="pred-result-icon" id="predBIcon">📊</div>
-              <div class="pred-result-body">
-                <strong id="predBLabel">Veri toplanıyor…</strong>
-                <span id="predBExplain"></span>
+              <!-- Faktör 3: Alt/Üst -->
+              <div class="pred-result neutral" id="predBOUResult">
+                <div class="pred-result-icon" id="predBOUIcon"><svg class="icon" viewBox="0 0 24 24" width="20" height="20"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg></div>
+                <div class="pred-result-body">
+                  <strong id="predBOULabel">Alt/Üst — —</strong>
+                  <span id="predBOUExplain"></span>
+                </div>
+              </div>
+
+              <div class="pred-confidence">
+                <span class="pred-conf-label">Güven</span>
+                <div class="pred-conf-bar-wrap"><div class="pred-conf-bar" id="predBConfBar" style="width:0%"></div></div>
+                <span class="pred-conf-val" id="predBConfVal">—</span>
               </div>
             </div>
-
-            <div class="pred-confidence">
-              <span class="pred-conf-label">Güven</span>
-              <div class="pred-conf-bar-wrap"><div class="pred-conf-bar" id="predBConfBar" style="width:0%"></div></div>
-              <span class="pred-conf-val" id="predBConfVal">—</span>
-            </div>
           </div>
         </div>
+
       </div>
 
     </div>
@@ -1642,6 +1685,13 @@
           : `P3 (${tQ[2]}) ≤ P4 (${tQ[3]}) — P1>P2 koşulu karşılanmış olmasına rağmen desen P3-P4'te bozuldu.`;
       }
 
+      // Tahmin kutuları için satır ikonları (emoji yerine site genelindeki çizgi-ikon stiliyle tutarlı SVG'ler)
+      const ICON_TROPHY = '<svg class="icon" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>';
+      const ICON_EQUAL  = '<svg class="icon" viewBox="0 0 24 24" width="20" height="20"><line x1="5" x2="19" y1="9" y2="9"/><line x1="5" x2="19" y1="15" y2="15"/></svg>';
+      const ICON_UP     = '<svg class="icon" viewBox="0 0 24 24" width="20" height="20"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>';
+      const ICON_DOWN   = '<svg class="icon" viewBox="0 0 24 24" width="20" height="20"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>';
+      const ICON_BARS   = '<svg class="icon" viewBox="0 0 24 24" width="20" height="20"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>';
+
       // Ortak: mevcut dakika metni ("Dakika 23 (P3 - 3. dk)")
       function currentMinuteLabel() {
         return lastAbsoluteMinute > 0
@@ -1649,9 +1699,42 @@
           : 'Dakika —';
       }
 
+      // Ortak: kazanan takım faktörü — kümülatif skor farkı, eşitlikte son pencere ile tie-break.
+      // 'high' = net bir taraf belirlendi, 'neutral' = berabere/karasız.
+      function renderWinnerFactor(prefix, homeCum, awayCum, tieHome, tieAway, homeLbl, awayLbl) {
+        const el      = document.getElementById(`${prefix}WinnerResult`);
+        const iconEl  = document.getElementById(`${prefix}WinnerIcon`);
+        const labelEl = document.getElementById(`${prefix}WinnerLabel`);
+        const explEl  = document.getElementById(`${prefix}WinnerExplain`);
+        let winner = null, margin = 0, tie = false;
+
+        if (homeCum > awayCum)      { winner = homeLbl; margin = homeCum - awayCum; }
+        else if (awayCum > homeCum) { winner = awayLbl; margin = awayCum - homeCum; }
+        else {
+          tie = true;
+          if (tieHome > tieAway)      winner = homeLbl;
+          else if (tieAway > tieHome) winner = awayLbl;
+        }
+
+        if (!winner) {
+          el.className = 'pred-result neutral';
+          iconEl.innerHTML = ICON_EQUAL;
+          labelEl.textContent = 'MS Kazanan — Berabere';
+          explEl.textContent = `Skorlar eşit (${homeCum}-${awayCum}), net favori yok.`;
+        } else {
+          el.className = 'pred-result high';
+          iconEl.innerHTML = ICON_TROPHY;
+          labelEl.textContent = `MS Kazanan — ${winner}`;
+          explEl.textContent = tie
+            ? `Toplam skorlar eşit (${homeCum}-${awayCum}), son periyot temposunda ${winner} önde.`
+            : `Skor ${homeCum}-${awayCum}, ${winner} +${margin} önde.`;
+        }
+      }
+
       // ── Tahmin A: Yarı Zamanı Kesin Karar (mutlak dk 20 = 2. periyot 10. dakika sonrası) ──
-      // Sadece skor kullanır. Mantık: maçın tam yarısındayız, o ana kadarki toplamı × 2
-      // ile doğrudan projeksiyon yapılır; P1→P2 tempo değişimi yön (Üst/Alt) belirler.
+      // Sadece skor kullanır, 3 faktör üretir: (1) kazanan takım, (2) toplam skor projeksiyonu,
+      // (3) alt/üst yönü. Mantık: maçın tam yarısındayız, o ana kadarki toplam × 2 ile doğrudan
+      // projeksiyon yapılır; P1→P2 tempo değişimi alt/üst yönünü belirler (toplam sayıdan bağımsız, ayrı bir sinyal).
       const lockedAEl = document.getElementById('predALocked');
       const openAEl   = document.getElementById('predAOpen');
       const cdAEl     = document.getElementById('predACountdown');
@@ -1670,47 +1753,57 @@
         const halfTotal = q1Total + q2Total;
         const projectedA = halfTotal * 2;
         const diffA = q2Total - q1Total;
+        const hHalf = hQ[0] + hQ[1];
+        const aHalf = aQ[0] + aQ[1];
 
         document.getElementById('paQ1').textContent = q1Total;
         document.getElementById('paQ2').textContent = q2Total;
         document.getElementById('paHalfTotal').textContent = halfTotal;
-        document.getElementById('paProjected').textContent = projectedA;
         document.getElementById('paTrend').textContent =
           diffA > 0 ? `P2 > P1 (+${diffA}) → tempo artıyor`
           : diffA < 0 ? `P2 < P1 (${diffA}) → tempo düşüyor`
           : `P2 = P1 → tempo sabit`;
 
-        const resultAEl  = document.getElementById('predAResult');
-        const iconAEl    = document.getElementById('predAIcon');
-        const labelAEl   = document.getElementById('predALabel');
-        const explainAEl = document.getElementById('predAExplain');
+        // Faktör 1: MS Kazanan (ilk yarı skoru, eşitlikte 2. periyot temposu ile tie-break)
+        renderWinnerFactor('predA', hHalf, aHalf, hQ[1], aQ[1], homeName || 'Ev Sahibi', awayName || 'Deplasman');
+
+        // Faktör 2: MS Toplam Skor
+        document.getElementById('predATotalLabel').textContent = `MS Toplam Skor — ${projectedA}`;
+        document.getElementById('predATotalExplain').textContent =
+          `İlk yarı toplamı ${halfTotal} × 2 = ${projectedA} (yarı zamanı doğrudan projeksiyon).`;
+
+        // Faktör 3: Alt/Üst (tempo eğilimi — toplam sayıdan bağımsız ayrı bir sinyal)
+        const resultAEl  = document.getElementById('predAOUResult');
+        const iconAEl    = document.getElementById('predAOUIcon');
+        const labelAEl   = document.getElementById('predAOULabel');
+        const explainAEl = document.getElementById('predAOUExplain');
 
         let clsA, iconA, labelA, explainA;
         if (diffA > 0) {
-          clsA = 'high'; iconA = '📈'; labelA = 'Üst — Kesin Karar';
-          explainA = `İlk yarı toplamı ${halfTotal}, tempo P1'den P2'ye yükseldi (+${diffA}). Projeksiyon (yarı × 2): ${projectedA}.`;
+          clsA = 'high'; iconA = ICON_UP; labelA = 'Alt/Üst — Üst';
+          explainA = `Tempo P1'den P2'ye yükseldi (+${diffA}) — ikinci yarıda benzer/daha hızlı akış bekleniyor.`;
         } else if (diffA < 0) {
-          clsA = 'low'; iconA = '📉'; labelA = 'Alt — Kesin Karar';
-          explainA = `İlk yarı toplamı ${halfTotal}, tempo P1'den P2'ye düştü (${diffA}). Projeksiyon (yarı × 2): ${projectedA}.`;
+          clsA = 'low'; iconA = ICON_DOWN; labelA = 'Alt/Üst — Alt';
+          explainA = `Tempo P1'den P2'ye düştü (${diffA}) — ikinci yarıda skor akışının yavaşlaması bekleniyor.`;
         } else {
-          clsA = 'neutral'; iconA = '📊'; labelA = 'Nötr';
-          explainA = `P1 ve P2 toplamları eşit (${q1Total}), net bir tempo eğilimi yok. Projeksiyon: ${projectedA}.`;
+          clsA = 'neutral'; iconA = ICON_BARS; labelA = 'Alt/Üst — Nötr';
+          explainA = `P1 ve P2 toplamları eşit (${q1Total}), net bir tempo eğilimi yok.`;
         }
         resultAEl.className = `pred-result ${clsA}`;
-        iconAEl.textContent = iconA;
+        iconAEl.innerHTML = iconA;
         labelAEl.textContent = labelA;
         explainAEl.textContent = explainA;
 
         // Güven: tam yarı noktası olduğu için yüksek taban + tempo farkı büyüdükçe artar
-        let confA = Math.min(70 + Math.abs(diffA) * 2, 95);
+        let confA = Math.min(70 + Math.round(Math.abs(diffA) * 2), 95);
         document.getElementById('predAConfBar').style.width = confA + '%';
         document.getElementById('predAConfVal').textContent = `%${confA}`;
       }
 
       // ── Tahmin B: 3. Periyot Erken Tahmini (mutlak dk 25 = 3. periyot 5. dakika sonrası) ──
-      // Sadece skor kullanır. Mantık: son 10 dakikanın hızı (dk16-25), maçın o ana kadarki
-      // genel ortalama hızından yüksekse tempo hızlanıyor demektir (Üst), düşükse yavaşlıyor (Alt).
-      // Kalan 15 dakika, GÜNCEL hızla projekte edilir (eski/yeni veriyi eşit ağırlıklandırmaz).
+      // Sadece skor kullanır, aynı 3 faktör yapısı. Mantık: son 10 dakikanın hızı (dk16-25),
+      // maçın o ana kadarki genel ortalama hızından yüksekse tempo hızlanıyor demektir (Üst),
+      // düşükse yavaşlıyor (Alt). Kalan 15 dakika GÜNCEL hızla projekte edilir.
       const lockedBEl = document.getElementById('predBLocked');
       const openBEl   = document.getElementById('predBOpen');
       const cdBEl     = document.getElementById('predBCountdown');
@@ -1724,12 +1817,14 @@
         if (lockedBEl) lockedBEl.style.display = 'none';
         if (openBEl)   openBEl.style.display   = '';
 
-        const cum25 = homeMinutes.slice(0, 25).reduce((a,b)=>a+b,0)
-                    + awayMinutes.slice(0, 25).reduce((a,b)=>a+b,0);
+        const h25 = homeMinutes.slice(0, 25).reduce((a,b)=>a+b,0);
+        const a25 = awayMinutes.slice(0, 25).reduce((a,b)=>a+b,0);
+        const cum25 = h25 + a25;
         const overallPace = cum25 / 25;
 
-        let recentWindow = 0;
-        for (let i = 15; i < 25; i++) recentWindow += (homeMinutes[i]||0) + (awayMinutes[i]||0); // dk16-25
+        let hRecentWindow = 0, aRecentWindow = 0;
+        for (let i = 15; i < 25; i++) { hRecentWindow += (homeMinutes[i]||0); aRecentWindow += (awayMinutes[i]||0); } // dk16-25
+        const recentWindow = hRecentWindow + aRecentWindow;
         const recentPace = recentWindow / 10;
 
         const projectedB = Math.round(cum25 + recentPace * 15); // kalan 15 dk
@@ -1738,31 +1833,39 @@
         document.getElementById('pbCum25').textContent = cum25;
         document.getElementById('pbOverallPace').textContent = overallPace.toFixed(2) + ' sayı/dk';
         document.getElementById('pbRecentPace').textContent  = recentPace.toFixed(2) + ' sayı/dk';
-        document.getElementById('pbProjected').textContent   = projectedB;
 
-        const resultBEl  = document.getElementById('predBResult');
-        const iconBEl    = document.getElementById('predBIcon');
-        const labelBEl   = document.getElementById('predBLabel');
-        const explainBEl = document.getElementById('predBExplain');
+        // Faktör 1: MS Kazanan (dk1-25 skoru, eşitlikte son 10dk penceresi ile tie-break)
+        renderWinnerFactor('predB', h25, a25, hRecentWindow, aRecentWindow, homeName || 'Ev Sahibi', awayName || 'Deplasman');
+
+        // Faktör 2: MS Toplam Skor
+        document.getElementById('predBTotalLabel').textContent = `MS Toplam Skor — ${projectedB}`;
+        document.getElementById('predBTotalExplain').textContent =
+          `Dk1-25 toplamı ${cum25} + güncel hız (${recentPace.toFixed(2)}/dk) × kalan 15 dk = ${projectedB}.`;
+
+        // Faktör 3: Alt/Üst (güncel hız vs genel ortalama — toplam sayıdan bağımsız ayrı bir sinyal)
+        const resultBEl  = document.getElementById('predBOUResult');
+        const iconBEl    = document.getElementById('predBOUIcon');
+        const labelBEl   = document.getElementById('predBOULabel');
+        const explainBEl = document.getElementById('predBOUExplain');
 
         let clsB, iconB, labelB, explainB;
         if (paceDiff > 0) {
-          clsB = 'high'; iconB = '📈'; labelB = 'Üst Bekleniyor';
-          explainB = `Son 10 dakika hızı (${recentPace.toFixed(2)}/dk) genel ortalamadan (${overallPace.toFixed(2)}/dk) yüksek — tempo hızlanıyor. Projeksiyon: ${projectedB}.`;
+          clsB = 'high'; iconB = ICON_UP; labelB = 'Alt/Üst — Üst';
+          explainB = `Son 10 dakika hızı (${recentPace.toFixed(2)}/dk) genel ortalamadan (${overallPace.toFixed(2)}/dk) yüksek — tempo hızlanıyor.`;
         } else if (paceDiff < 0) {
-          clsB = 'low'; iconB = '📉'; labelB = 'Alt Bekleniyor';
-          explainB = `Son 10 dakika hızı (${recentPace.toFixed(2)}/dk) genel ortalamanın (${overallPace.toFixed(2)}/dk) altında — tempo yavaşlıyor. Projeksiyon: ${projectedB}.`;
+          clsB = 'low'; iconB = ICON_DOWN; labelB = 'Alt/Üst — Alt';
+          explainB = `Son 10 dakika hızı (${recentPace.toFixed(2)}/dk) genel ortalamanın (${overallPace.toFixed(2)}/dk) altında — tempo yavaşlıyor.`;
         } else {
-          clsB = 'neutral'; iconB = '📊'; labelB = 'Nötr';
-          explainB = `Son 10 dakika hızı genel ortalamayla aynı (${overallPace.toFixed(2)}/dk). Projeksiyon: ${projectedB}.`;
+          clsB = 'neutral'; iconB = ICON_BARS; labelB = 'Alt/Üst — Nötr';
+          explainB = `Son 10 dakika hızı genel ortalamayla aynı (${overallPace.toFixed(2)}/dk).`;
         }
         resultBEl.className = `pred-result ${clsB}`;
-        iconBEl.textContent = iconB;
+        iconBEl.innerHTML = iconB;
         labelBEl.textContent = labelB;
         explainBEl.textContent = explainB;
 
         // Güven: hız farkı büyüdükçe artar, taban daha düşük (A'dan daha erken/az veri)
-        let confB = Math.min(55 + Math.abs(paceDiff) * 15, 90);
+        let confB = Math.min(55 + Math.round(Math.abs(paceDiff) * 15), 90);
         document.getElementById('predBConfBar').style.width = confB + '%';
         document.getElementById('predBConfVal').textContent = `%${confB}`;
       }
