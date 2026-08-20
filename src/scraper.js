@@ -51,6 +51,9 @@ const SELECTORS = {
     `${BASE}/div[3]/div/div[2]/div/span[1]`,
   ],
   minute: [
+    // 2025 sonu DOM: <div class="detailScore__status"><span class="fixedHeaderDuel__detailStatus">3. Çeyrek</span><span class="eventTime">2<span class="event__timeIndicator">'</span></span></div>
+    '.detailScore__status .eventTime',
+    '[class*="eventTime"]',
     '.smh__minute',
     '[class*="smh__minute"]',
     '[class*="minuteWrapper"] > span:first-child',
@@ -318,8 +321,11 @@ async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
             reject(new Error('Maç bitti.'));
             return;
           }
-          if (data.period && data.period >= 1) {
-            log('Maç başladı! ' + data.periodText);
+          // Not: parseQuarter("Devre Arası") null döner (çeyrek numarası içermiyor),
+          // bu yüzden devre arasında bağlanan maç da "başlamış" sayılmalı — yoksa
+          // checkStart() sonsuza kadar bekler ve mainLoop()'a hiç geçilmez.
+          if ((data.period && data.period >= 1) || data.halftime) {
+            log('Maç başladı! ' + (data.periodText || 'Devre arası'));
             resolve();
             return;
           }
@@ -329,7 +335,7 @@ async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
         watchTimer = setTimeout(checkStart, 3000);
       }
 
-      if (initialData.period && initialData.period >= 1) {
+      if ((initialData.period && initialData.period >= 1) || initialData.halftime) {
         resolve();
       } else {
         checkStart();
