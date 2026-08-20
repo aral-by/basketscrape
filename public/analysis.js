@@ -176,9 +176,15 @@ function makeTotalCell(homeMinutes, awayMinutes, absoluteMin, lastAbsoluteMinute
   return td;
 }
 
-// ── EG10 Table (per-period cumulative × 10) ──────────────────────────────────
+// ── EG10 Table (per-period pace projection × 40/dakika) ──────────────────────
 // Her periyot kendi 10 dakikası içinde bağımsız hesaplanır:
-// minute[m] hücresi = (o periyodun 1. dakikadan m. dakikaya kadar toplamı) × 10
+// EG10[m] = (o periyodun 1. dakikadan m. dakikaya kadar toplamı) × (40 / m)
+// Özel yuvarlama: küsurat 0.7 ve üzeriyse yukarı, altındaysa aşağı yuvarlanır (standart .5 değil).
+function roundEg10(v) {
+  const base = Math.floor(v);
+  return (v - base) >= 0.7 ? base + 1 : base;
+}
+
 function renderEg10Tbody(tbody, minutes, totalCells, lastAbsoluteMinute) {
   tbody.innerHTML = '';
   for (let period = 1; period <= 4; period++) {
@@ -191,7 +197,7 @@ function renderEg10Tbody(tbody, minutes, totalCells, lastAbsoluteMinute) {
     for (let min = 1; min <= 10; min++) {
       const absoluteMin = start + min;
       cum += (minutes[absoluteMin - 1] ?? 0);
-      tr.appendChild(makeEg10Cell(cum * 10, absoluteMin, lastAbsoluteMinute));
+      tr.appendChild(makeEg10Cell(roundEg10(cum * (40 / min)), absoluteMin, lastAbsoluteMinute));
     }
     tbody.appendChild(tr);
   }
@@ -207,7 +213,7 @@ function renderEg10Tbody(tbody, minutes, totalCells, lastAbsoluteMinute) {
         if (min <= 5) {
           const absoluteMin = 40 + (ot - 1) * 5 + min;
           cum += (minutes[absoluteMin - 1] ?? 0);
-          tr.appendChild(makeEg10Cell(cum * 10, absoluteMin, lastAbsoluteMinute));
+          tr.appendChild(makeEg10Cell(roundEg10(cum * (40 / min)), absoluteMin, lastAbsoluteMinute));
         } else {
           const td = document.createElement('td'); td.className = 'empty-cell'; td.textContent = '–'; tr.appendChild(td);
         }
@@ -225,7 +231,7 @@ function makeEg10Cell(val, absoluteMin, lastAbsoluteMinute) {
   return td;
 }
 
-// Ev + deplasman EG10 değerlerinin toplamı — aynı kümülatif × 10 mantığı, iki takımın o dakikaki puanları toplanarak.
+// Ev + deplasman EG10 değerlerinin toplamı — aynı pace-projeksiyon mantığı, iki takımın o dakikaki puanları toplanarak.
 function renderEg10TotalTbody(tbody, homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute) {
   tbody.innerHTML = '';
   for (let period = 1; period <= 4; period++) {
@@ -238,7 +244,7 @@ function renderEg10TotalTbody(tbody, homeMinutes, awayMinutes, totalCells, lastA
     for (let min = 1; min <= 10; min++) {
       const absoluteMin = start + min;
       cum += (homeMinutes[absoluteMin - 1] ?? 0) + (awayMinutes[absoluteMin - 1] ?? 0);
-      tr.appendChild(makeEg10Cell(cum * 10, absoluteMin, lastAbsoluteMinute));
+      tr.appendChild(makeEg10Cell(roundEg10(cum * (40 / min)), absoluteMin, lastAbsoluteMinute));
     }
     tbody.appendChild(tr);
   }
@@ -254,7 +260,7 @@ function renderEg10TotalTbody(tbody, homeMinutes, awayMinutes, totalCells, lastA
         if (min <= 5) {
           const absoluteMin = 40 + (ot - 1) * 5 + min;
           cum += (homeMinutes[absoluteMin - 1] ?? 0) + (awayMinutes[absoluteMin - 1] ?? 0);
-          tr.appendChild(makeEg10Cell(cum * 10, absoluteMin, lastAbsoluteMinute));
+          tr.appendChild(makeEg10Cell(roundEg10(cum * (40 / min)), absoluteMin, lastAbsoluteMinute));
         } else {
           const td = document.createElement('td'); td.className = 'empty-cell'; td.textContent = '–'; tr.appendChild(td);
         }
