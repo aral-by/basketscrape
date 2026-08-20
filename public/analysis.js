@@ -106,6 +106,65 @@ function updateTotalChart(homeMinutes, awayMinutes, lastAbsoluteMinute) {
   totalChart.update();
 }
 
+// ── EG10 Chart (Toplam) ────────────────────────────────────────────────────────
+let eg10Chart = null;
+
+function initEg10Chart() {
+  const ctx = document.getElementById('eg10Chart').getContext('2d');
+  eg10Chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{ label: 'Toplam (EG10)', data: [], borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.10)', tension: 0.4, pointRadius: 3, pointHoverRadius: 5, fill: true }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 250 }, interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: { title: { display: true, text: 'Dakika', color: '#fbbf24', font: { size: 11 } }, ticks: { color: '#71717a', maxTicksLimit: 20 }, grid: { color: 'rgba(251,191,36,0.06)' } },
+        y: { title: { display: true, text: 'EG10', color: '#fbbf24', font: { size: 11 } }, ticks: { color: '#71717a' }, grid: { color: 'rgba(251,191,36,0.06)' }, beginAtZero: true },
+      },
+      plugins: { legend: { labels: { color: '#fbbf24', font: { size: 12 }, boxWidth: 12 } }, tooltip: { backgroundColor: 'rgba(20,15,5,0.95)', titleColor: '#fbbf24', bodyColor: '#e4e4e7' } },
+    },
+  });
+}
+
+// Toplam (EG10) tablosuyla birebir aynı hesap: periyot içi kümülatif × (40/dakika), roundEg10 ile yuvarlanmış.
+// Düz bir seriye çıkarır (absoluteMin - 1 indeksli) — chart'ta doğrudan kullanılabilsin diye.
+function computeEg10TotalSeries(homeMinutes, awayMinutes, totalCells) {
+  const series = [];
+  for (let period = 1; period <= 4; period++) {
+    const start = (period - 1) * 10;
+    let cum = 0;
+    for (let min = 1; min <= 10; min++) {
+      const absoluteMin = start + min;
+      cum += (homeMinutes[absoluteMin - 1] ?? 0) + (awayMinutes[absoluteMin - 1] ?? 0);
+      series[absoluteMin - 1] = roundEg10(cum * (40 / min));
+    }
+  }
+  if (totalCells > 40) {
+    const otCount = Math.ceil((totalCells - 40) / 5);
+    for (let ot = 1; ot <= otCount; ot++) {
+      let cum = 0;
+      for (let min = 1; min <= 5; min++) {
+        const absoluteMin = 40 + (ot - 1) * 5 + min;
+        cum += (homeMinutes[absoluteMin - 1] ?? 0) + (awayMinutes[absoluteMin - 1] ?? 0);
+        series[absoluteMin - 1] = roundEg10(cum * (40 / min));
+      }
+    }
+  }
+  return series;
+}
+
+function updateEg10Chart(homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute) {
+  if (!eg10Chart) initEg10Chart();
+  const count  = Math.max(lastAbsoluteMinute, 1);
+  const series = computeEg10TotalSeries(homeMinutes, awayMinutes, totalCells);
+  eg10Chart.data.labels           = Array.from({ length: count }, (_, i) => i + 1);
+  eg10Chart.data.datasets[0].data = series.slice(0, count);
+  eg10Chart.update();
+}
+
 // ── Table Rendering ──────────────────────────────────────────────────────────
 function renderTbody(tbody, minutes, totalCells, lastAbsoluteMinute, multiplier = 1) {
   tbody.innerHTML = '';
@@ -674,6 +733,7 @@ socket.on('scoreUpdate', (state) => {
   renderEg10TotalTbody(totalTbodyEG10, homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute);
   updateChart(homeMinutes, awayMinutes, lastAbsoluteMinute, homeName, awayName);
   updateTotalChart(homeMinutes, awayMinutes, lastAbsoluteMinute);
+  updateEg10Chart(homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute);
   if (stats) {
     updateSidePanel(stats, latestHomeName, latestAwayName, latestHomeScore, latestAwayScore);
     setNoStatsWarning(false);
@@ -714,6 +774,7 @@ socket.on('matchEnd', (result) => {
     renderEg10TotalTbody(totalTbodyEG10, homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute);
     updateChart(homeMinutes, awayMinutes, lastAbsoluteMinute, homeName, awayName);
     updateTotalChart(homeMinutes, awayMinutes, lastAbsoluteMinute);
+    updateEg10Chart(homeMinutes, awayMinutes, totalCells, lastAbsoluteMinute);
     if (result.state.stats) {
       updateSidePanel(result.state.stats, latestHomeName, latestAwayName, latestHomeScore, latestAwayScore);
       setNoStatsWarning(false);

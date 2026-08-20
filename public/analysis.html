@@ -430,6 +430,7 @@
       position: relative;
     }
     .chart-card.total-chart   { border-color: var(--total-bdr); }
+    .chart-card.eg10-chart    { border-color: rgba(251,191,36,0.3); }
     .chart-card.combined-chart { border-color: var(--border-md); }
 
     .chart-card canvas { height: 300px !important; }
@@ -440,6 +441,7 @@
       letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 16px;
     }
     .total-chart .chart-label    { color: var(--total); }
+    .eg10-chart .chart-label     { color: #fbbf24; }
     .combined-chart .chart-label { color: var(--text); }
 
     /* ── Analytics Pages ─── */
@@ -1020,6 +1022,10 @@
         <div class="chart-card total-chart">
           <div class="chart-label">Toplam (×40) — Dakika Başına Tempo</div>
           <canvas id="totalChart"></canvas>
+        </div>
+        <div class="chart-card eg10-chart">
+          <div class="chart-label">Toplam (EG10) — Periyot İçi Pace Projeksiyonu</div>
+          <canvas id="eg10Chart"></canvas>
         </div>
         <div class="chart-card combined-chart">
           <div class="chart-label">Birleşik Görünüm — Ev Sahibi · Deplasman · Toplam</div>
