@@ -36,15 +36,7 @@ for %%P in (%PORTS%) do (
         echo [%%P] Dosyalar kopyalaniyor...
         echo [%%P] robocopy basladi >> "%LOG%"
         robocopy "%KAYNAK%" "!HEDEF!" /E /XD node_modules .git /NP /NFL /NDL /NJH /NJS >> "%LOG%" 2>&1
-        echo [%%P] robocopy bitti, errorlevel=%errorlevel% >> "%LOG%"
-
-        echo [%%P] Port degistiriliyor 3010 -^> %%P ...
-        powershell -NoProfile -Command "(Get-Content '!HEDEF!\src\server.js' -Raw) -replace '\b3010\b', '%%P' | Set-Content '!HEDEF!\src\server.js' -Encoding UTF8"
-        if errorlevel 1 (
-            echo [%%P] HATA: Port degistirme basarisiz >> "%LOG%"
-        ) else (
-            echo [%%P] Port degistirildi >> "%LOG%"
-        )
+        echo [%%P] robocopy bitti, errorlevel=!errorlevel! >> "%LOG%"
 
         echo [%%P] start.bat yaziliyor...
         call :YazStartBat "!HEDEF!" %%P
@@ -54,7 +46,7 @@ for %%P in (%PORTS%) do (
         echo [%%P] npm install basliyor >> "%LOG%"
         cd /d "!HEDEF!"
         call npm install --loglevel=warn >> "%LOG%" 2>&1
-        echo [%%P] npm install bitti, errorlevel=%errorlevel% >> "%LOG%"
+        echo [%%P] npm install bitti, errorlevel=!errorlevel! >> "%LOG%"
         cd /d "%KAYNAK%"
 
         echo [%%P] TAMAM -^> http://localhost:%%P
@@ -86,6 +78,7 @@ set "_PORT=%~2"
     echo @echo off
     echo title BasketScrape - Port %_PORT%
     echo cd /d "%%~dp0"
+    echo set PORT=%_PORT%
     echo echo.
     echo echo  Sunucu baslatiliyor: http://localhost:%_PORT%
     echo echo.

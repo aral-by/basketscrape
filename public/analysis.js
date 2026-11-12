@@ -359,7 +359,6 @@ function safe(n) { return isNaN(n) || !isFinite(n) ? 0 : n; }
 
 function computeMetrics(sections, homeName, awayName, homeScore, awayScore) {
   const flat = flatStats(sections);
-  console.log('[basketscrape] Stat isimleri:', Object.keys(flat));
 
   // Flashscore'da "Alan Golü" = toplam FG (2P+3P birlikte), 2P ayrı gelmez.
   // totalFg → alan golü / field goal (toplam)
@@ -372,8 +371,6 @@ function computeMetrics(sections, homeName, awayName, homeScore, awayScore) {
   const drb     = findStat(flat, 'savunma rib', 'defansif r', 'def reb', 'savunma ribaund');
   const tov     = findStat(flat, 'top kayb', 'turnover', 'kayıp');
   const ast     = findStat(flat, 'asist', 'assist');
-
-  console.log('[basketscrape] Eşleşme → totalFg:', totalFg, 'fg3:', fg3, 'ft:', ft, 'orb:', orb, 'drb:', drb, 'tov:', tov);
 
   // FG kaynağını çöz: totalFg eşleştiyse 2P = total − 3P, yoksa fg2only + fg3 kullan
   function resolveFg(side) {
@@ -651,7 +648,11 @@ function updatePanelStats(sections, homeName, awayName) {
 
   const colHdr = document.createElement('div');
   colHdr.className = 'stats-col-header';
-  colHdr.innerHTML = `<span class="s-col-home">${homeName}</span><span class="s-col-mid">İstatistikler</span><span class="s-col-away">${awayName}</span>`;
+  [['s-col-home', homeName], ['s-col-mid', 'İstatistikler'], ['s-col-away', awayName]].forEach(([cls, text]) => {
+    const span = document.createElement('span');
+    span.className = cls; span.textContent = text;
+    colHdr.appendChild(span);
+  });
   panelStats.appendChild(colHdr);
 
   const grid = document.createElement('div');
@@ -669,7 +670,11 @@ function updatePanelStats(sections, homeName, awayName) {
     table.className = 'stats-table';
     rows.forEach(({ name, home, away }) => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="s-home">${home}</td><td class="s-name">${name}</td><td class="s-away">${away}</td>`;
+      [['s-home', home], ['s-name', name], ['s-away', away]].forEach(([cls, text]) => {
+        const td = document.createElement('td');
+        td.className = cls; td.textContent = text;
+        tr.appendChild(td);
+      });
       table.appendChild(tr);
     });
     sec.appendChild(table);
