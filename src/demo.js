@@ -20,6 +20,35 @@ function loadGame(id) {
   return id && id !== 'random' ? games.find((g) => g.id === id) : games[Math.floor(Math.random() * games.length)];
 }
 
+// Demo only: plausible team statistics derived from the score, clearly labelled as not real.
+function demoStats(home, away, minute, seed) {
+  let x = seed;
+  const rnd = () => { x = (x * 9301 + 49297) % 233280; return x / 233280; };
+  const side = (pts) => {
+    const ftm = Math.round(pts * (0.14 + rnd() * 0.06));
+    const fg3m = Math.round((pts - ftm) * (0.3 + rnd() * 0.12) / 3);
+    const fg2m = Math.max(0, Math.round((pts - ftm - fg3m * 3) / 2));
+    const f = minute / 40;
+    return {
+      fg: [fg2m + fg3m, Math.round(fg2m / (0.5 + rnd() * 0.1) + fg3m / (0.33 + rnd() * 0.08))],
+      fg2: [fg2m, Math.round(fg2m / (0.5 + rnd() * 0.1))], fg3: [fg3m, Math.round(fg3m / (0.33 + rnd() * 0.08))],
+      ft: [ftm, Math.round(ftm / (0.72 + rnd() * 0.12))],
+      orb: Math.round((7 + rnd() * 6) * f), drb: Math.round((20 + rnd() * 8) * f), ast: Math.round((14 + rnd() * 8) * f),
+      tov: Math.round((10 + rnd() * 6) * f), stl: Math.round((5 + rnd() * 4) * f), blk: Math.round((2 + rnd() * 3) * f),
+      pf: Math.round((16 + rnd() * 8) * f),
+    };
+  };
+  const H = side(home), A = side(away);
+  const fr = (p) => `${p[0]}/${p[1]}`;
+  const row = (name, h, a) => ({ name, home: String(h), away: String(a) });
+  return [{ title: 'DEMO istatistikleri (gerçek değil)', rows: [
+    row('Alan Golü', fr(H.fg), fr(A.fg)), row('İki Sayılık', fr(H.fg2), fr(A.fg2)), row('Üç Sayılık', fr(H.fg3), fr(A.fg3)),
+    row('Serbest Atış', fr(H.ft), fr(A.ft)), row('Hücum Ribaundu', H.orb, A.orb), row('Savunma Ribaundu', H.drb, A.drb),
+    row('Toplam Ribaund', H.orb + H.drb, A.orb + A.drb), row('Asist', H.ast, A.ast), row('Top Kaybı', H.tov, A.tov),
+    row('Top Çalma', H.stl, A.stl), row('Blok', H.blk, A.blk), row('Fauller', H.pf, A.pf),
+  ] }];
+}
+
 function periodOf(m) {
   if (m <= 40) return { period: Math.ceil(m / 10), minute: ((m - 1) % 10) + 1 };
   return { period: 5 + Math.floor((m - 41) / 5), minute: ((m - 41) % 5) + 1 };
@@ -54,7 +83,7 @@ function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
     const away = game.cumulative.away[m - 1];
     board.update(period, minute, home, away);
     onUpdate({ ...board.getState(), homeName, awayName, league, period, periodText: '', minute,
-      homeScore: home, awayScore: away, stats: null });
+      homeScore: home, awayScore: away, stats: demoStats(home, away, m, game.id.length * 7 + 11) });
     timer = setTimeout(tick, speed);
   };
   timer = setTimeout(tick, 300);

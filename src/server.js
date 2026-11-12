@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const fs = require('fs');
 const path = require('path');
 const { Server } = require('socket.io');
 const { isAllowedMatchUrl } = require('./parse');
@@ -36,8 +37,6 @@ const manager = new MatchManager({
 });
 
 app.use(express.json());
-// Eski panel adresi yeni panele yönlenir.
-app.get('/analysis.html', (req, res) => res.redirect(301, '/'));
 app.use(express.static(path.join(__dirname, '../public')));
 // Tahmin matematiği tarayıcıda da çalışır (barem yazılırken Üst/Alt olasılığı anında hesaplanır).
 app.get('/lib/predictor.js', (req, res) => res.sendFile(path.join(__dirname, 'predictor.js')));
@@ -51,6 +50,26 @@ const modelInfo = () => {
   };
 };
 app.get('/api/model', (req, res) => res.json(modelInfo()));
+
+// "Hakkında" penceresi: sürüm, kurulum ve veri bilgisi.
+app.get('/api/about', (req, res) => {
+  const root = path.join(__dirname, '..');
+  const read = (f) => { try { return fs.readFileSync(path.join(root, f), 'utf8').trim(); } catch { return null; } };
+  let recorded = 0;
+  try { recorded = fs.readdirSync(DATA_DIR).filter((f) => f.endsWith('.json')).length; } catch { /* yok */ }
+  const pkg = JSON.parse(read('package.json') || '{}');
+  res.json({
+    version: pkg.version || null,
+    commit: (read('.version') || '').slice(0, 7) || null,
+    node: process.versions.node,
+    dataDir: DATA_DIR,
+    recorded,
+    recording: RECORD_MATCHES,
+    maxMatches: MAX_MATCHES,
+    repo: 'https://github.com/aral-by/basketscrape',
+    model: modelInfo(),
+  });
+});
 
 app.get('/api/matches', (req, res) => res.json({ matches: manager.list(), maxMatches: MAX_MATCHES }));
 
