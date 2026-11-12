@@ -37,6 +37,20 @@ Creates `basketscrape-3020`, `basketscrape-3030`, `basketscrape-3040`, `basketsc
 
 ---
 
+## Machine Learning (`ml/`)
+
+Every watched match is recorded to `data/matches/*.json` (minute-by-minute cumulative score +
+final score; disable with `RECORD_MATCHES=0`). The Python package in `ml/` trains and evaluates
+final-total (MS) models on these records and selects the Q3 prediction minute.
+Design, math and sample-size analysis: [`docs/ml-design.md`](docs/ml-design.md).
+
+```bash
+cd ml && ../.venv/bin/python -m pytest
+../.venv/bin/python -m basketml evaluate --data ../data/matches
+```
+
+---
+
 ## Tests
 
 ```bash
