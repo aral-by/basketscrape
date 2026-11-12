@@ -58,7 +58,7 @@ stateDiagram-v2
     WaitingForTipOff --> Finished: status text is "finished"
     Running --> Running: read every 2 s
     Running --> Recovering: shared browser crashed or 5 consecutive errors
-    Recovering --> Running: relaunch, ScoreBoard kept
+    Recovering --> Running: reopen tab, ScoreBoard kept
     Running --> Finished: status text is "finished"
     Launching --> Error: launch or first load failed
     Finished --> [*]: onEnd(final), tab closed
@@ -79,6 +79,8 @@ stateDiagram-v2
 | Error threshold | 5 | Consecutive failed reads before the tab is reopened |
 
 The basketball clock stops often, so a minute can last several real minutes. The 120-second stale threshold is set so that a reload during a normal stoppage is harmless.
+
+A crash of the shared Chromium affects every match: each watcher is told its tab is gone, the pool launches one new browser, and every match reopens its tab there with its ScoreBoard intact.
 
 `networkidle2` timeouts are common on Flashscore because of ads and websockets. A timeout is logged and the page is used as it is, instead of being treated as a failure.
 
@@ -222,4 +224,5 @@ Design decisions:
 - **Gaps stay `null`.** Unobserved minutes are never filled in.
 - **Restart-safe.** If the same match is started again (refresh, server restart), the existing file is loaded and earlier observations are kept.
 - **Atomic writes.** Each write goes to a temporary file that is then renamed. Files are written once per minute, not every 2 seconds.
+- **Every league is recorded.** Recording does not depend on the prediction model: matches from leagues without predictions are saved too, and can train league-specific models later.
 - **Nothing to learn, no file.** A match that finishes without a single observed minute (for example, one that was already over) is not saved.

@@ -50,7 +50,7 @@ flowchart LR
     SRV -- "state" --> PRD
     MODEL --> PRD
     PRD -- "prediction" --> SRV
-    SRV -- "scoreUpdate / prediction /<br/>matchStatus / matchEnd" --> ANA
+    SRV -- "match:update / match:prediction /<br/>match:status / match:end<br/>(tagged with the match id)" --> ANA
     SRV -- "update / finish" --> REC
     REC --> DATA
     DATA --> ML
@@ -139,7 +139,7 @@ Only Flashscore URLs are accepted (`flashscore.com`, `flashscore.com.tr`, `flash
 
 ```mermaid
 flowchart TB
-    SU["scoreUpdate<br/>(every 2 s)"] --> LF["liveForecast<br/>completed minutes only"]
+    SU["match:update<br/>(every 2 s, per match)"] --> LF["liveForecast<br/>completed minutes only"]
     LF --> NOW["live prediction<br/>mean · 80 % interval · P(OT)"]
     LF --> LOCK{"21 ≤ t ≤ 30 and<br/>σ̂ ≤ 9.5 (or t = 30)?"}
     LOCK -- "first time" --> LK["locked prediction"]
@@ -154,6 +154,7 @@ flowchart TB
 
 | Card | Content |
 |---|---|
+| Match tabs | One tab per watched match: score, quarter and minute, live/waiting dot, and the verdict for that match's line (`ÜST %83`, `PAS %64`, `KİLİT 162`). × removes the match |
 | Scoreboard | Teams, score, period and minute, quarter scores |
 | Prediction | Full-time total, 80 % interval, uncertainty, overtime probability. Phases: early → lock window → locked → final, with the lock's error at the end |
 | Line · Over/Under | Probability that the total goes over / under the typed line, from the locked or the live prediction; verdict against a 70–85 % threshold |
@@ -198,7 +199,7 @@ The full design, the mathematics and the sample-size analysis are in [`docs/ml-d
 ## Testing
 
 ```bash
-npm test                                   # Node: 45 tests
+npm test                                   # Node: 58 tests
 cd ml && ../.venv/bin/python -m pytest     # Python: 35 tests
 ```
 
@@ -206,18 +207,23 @@ cd ml && ../.venv/bin/python -m pytest     # Python: 35 tests
 |---|---|
 | `test/gameState.test.js` | Per-minute derivation, baselines, overtime indexing, score corrections, invalid input |
 | `test/parse.test.js` | Period, minute, score and status parsing in Turkish and English; URL allow-list |
-| `test/scraper.test.js` | Watcher lifecycle against a fake Puppeteer: stop before tip-off, finish, crash recovery |
+| `test/scraper.test.js` | Watcher lifecycle against a fake Puppeteer: stop before tip-off, finish, crash recovery; several matches sharing one browser |
+| `test/matchManager.test.js` | Several matches at once: duplicates, limit, per-match events, removal, finished matches, resume after restart |
+| `test/update.test.js` | GitHub tarball parsing (pax long names, unsafe paths), updates that keep `data/` and remove deleted files |
 | `test/recorder.test.js` | Recording format, mid-match starts, overtime, merging restarted sessions |
 | `test/predictor.test.js` | Parity with the Python model, team/league matching, completed-minute inputs, lock rule, league gate |
 | `ml/tests/` | No look-ahead leakage, model behaviour, calibration, validation folds, minute selection |
 
-No test needs a browser or network access.
+No test needs a browser or network access. The Windows batch files cannot be tested here; `scripts/update.js` and `scripts/launch.js`, which do the actual work, are.
 
 ---
 
 ## Deployment
 
-`nixpacks.toml` configures Railway with a system Chromium. Container file systems on most platforms are ephemeral: mount a persistent volume and point `DATA_DIR` at it, or match recordings are lost on every redeploy.
+- **Windows PC (recommended for daily use):** `BasketScrape-Kurulum.bat`, see [Quick start](#quick-start). Updates arrive automatically when the app starts.
+- **Server:** `nixpacks.toml` configures Railway with a system Chromium. Container file systems on most platforms are ephemeral: mount a persistent volume and point `DATA_DIR` and `SESSIONS_FILE` at it, or recordings and the list of open matches are lost on every redeploy.
+
+Every open match is a tab in one shared Chromium, so memory grows with the number of matches. Images, fonts and video are not loaded. `MAX_MATCHES` caps concurrent matches at 8 by default.
 
 ---
 
@@ -227,6 +233,9 @@ No test needs a browser or network access.
 basketscrape/
 ├── src/
 │   ├── server.js        HTTP API + Socket.IO
+│   ├── matchManager.js  several matches at once, resume after restart
+│   ├── browserPool.js   one shared Chromium, one tab per match
+│   ├── openApp.js       opens the panel as an app window
 │   ├── scraper.js       watcher lifecycle (Puppeteer)
 │   ├── parse.js         text parsers + URL allow-list
 │   ├── gameState.js     per-minute score engine
@@ -235,7 +244,7 @@ basketscrape/
 │   ├── liveForecast.js  live forecast and lock
 │   └── demo.js          dataset replay instead of scraping
 ├── models/eb_plus.json  exported model (parameters, team context, validation)
-├── public/              prediction panel (HTML, CSS, JS)
+├── public/              prediction panel (HTML, CSS, JS, icon)
 ├── test/                Node test suite
 ├── ml/
 │   ├── basketml/        data · features · models · evaluate · timing · simulate
@@ -257,7 +266,7 @@ basketscrape/
 | Document | Topic |
 |---|---|
 | [`docs/algo.md`](docs/algo.md) | Watcher lifecycle, match-state detection, per-minute score engine, recording format |
-| [`docs/formula.md`](docs/formula.md) | Every metric shown on the dashboard, with its exact formula |
+| [`docs/formula.md`](docs/formula.md) | Every number on the prediction panel, with its exact formula |
 | [`docs/ml-design.md`](docs/ml-design.md) | Final-total prediction: models, validation, minute selection, data requirements |
 
 ---

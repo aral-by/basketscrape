@@ -24,20 +24,22 @@ During a live FIBA game (4 × 10 minutes), at absolute minute `t`:
 
 ```mermaid
 flowchart LR
-    subgraph Collection["Collection (Node)"]
-        LIVE["live match"] --> REC["recorder.js"]
+    subgraph Collection["Collection"]
+        API["EuroLeague live-stats API<br/>backfill-euroleague"] --> DS[("ml/datasets/euroleague/*.jsonl.gz")]
+        LIVE["live matches<br/>(any league)"] --> REC["recorder.js"]
         REC --> JSON[("data/matches/*.json")]
     end
     subgraph Training["Training and evaluation (Python, ml/basketml)"]
+        DS --> LOAD
         JSON --> LOAD["data.py<br/>load finished matches,<br/>chronological order"]
         LOAD --> FEAT["features.py<br/>one row per (match, minute),<br/>no look-ahead"]
         FEAT --> CV["evaluate.py<br/>expanding-window validation"]
         CV --> MET["metrics<br/>MAE · RMSE · bias · coverage"]
         CV --> TIM["timing.py<br/>prediction-minute selection"]
         FEAT --> FIT["fit on all data"]
-        FIT --> EXP["export<br/>artifacts/model.json"]
+        FIT --> EXP["export<br/>models/eb_plus.json"]
     end
-    EXP --> APP["live dashboard<br/>(planned)"]
+    EXP --> APP["live panel<br/>src/predictor.js"]
 ```
 
 ---
@@ -108,7 +110,7 @@ flowchart TB
 
 | Model | Prediction | Origin |
 |---|---|---|
-| `naive_pace` | `S_t · 40 / t` | The ×40 logic of the current dashboard. At `t = 30` it equals the "1-2-3 (new)" calculator formula. |
+| `naive_pace` | `S_t · 40 / t` | The ×40 logic of the old dashboard. At `t = 30` it equals the "1-2-3 (new)" calculator formula. |
 | `pdf_kriter1` | `Q1 + Q2 + 2·Q̂3` | Criterion 1 from the user's calculator: assume Q4 = Q3. |
 | `pdf_q2q3x2` | `2·(Q2 + Q̂3)` | The calculator's "Q2 + Q3" projection. |
 
@@ -278,7 +280,7 @@ The claim: *"If Q2 > Q1, then Q4 ≥ Q3 (95 % of the time)."*
 | `P(Q4 ≥ Q3 \| Q2 ≤ Q1)` and Fisher's exact test | Whether the condition carries any information at all |
 | `P(y > Q1 + Q2 + 2·Q3 \| Q2 > Q1)` | The practical rule: how often an *Over* at that floor wins |
 
-The dashboard's existing "Regular Decline" rule (Q1 > Q2 ⇒ Q3 > Q4) is the mirror image, so the same data tests both. This test needs only quarter scores, so it can run on historical matches.
+The old dashboard's "Regular Decline" rule (Q1 > Q2 ⇒ Q3 > Q4) is the mirror image, so the same data tests both. This test needs only quarter scores, so it can run on historical matches.
 
 ### Criterion 2
 
@@ -394,7 +396,8 @@ cd ml
 ../.venv/bin/python -m basketml evaluate --synthetic 400            # pipeline check
 ../.venv/bin/python -m basketml kriter1  --data ../data/matches     # Criterion 1 test
 ../.venv/bin/python -m basketml learning-curve                      # sample-size study
-../.venv/bin/python -m basketml export   --data ../data/matches     # artifacts/model.json
+../.venv/bin/python -m basketml export   --data datasets/euroleague \
+    --parity-out ../test/fixtures/predictor_parity.json             # models/eb_plus.json
 ```
 
 ---
@@ -403,12 +406,18 @@ cd ml
 
 ```mermaid
 flowchart LR
-    A["1 · Collector<br/>auto-discover live matches,<br/>record in parallel,<br/>persistent storage"] --> C
-    B["2 · Historical backfill<br/>EuroLeague/EuroCup done;<br/>pre-game lines next"] --> C
-    B --> H["test Criterion 1<br/>on real data"]
-    C["3 · Train on<br/>real recordings"] --> D["4 · Live integration<br/>model.json in Node,<br/>new prediction UI"]
+    A["Backfill<br/>EuroLeague/EuroCup ✓"] --> B["eb_plus model ✓"]
+    B --> C["Live panel ✓<br/>several matches ✓"]
+    C --> D["Pre-game and live<br/>lines"]
+    C --> E["Box score:<br/>fouls, players"]
+    C --> F["Other leagues<br/>from own recordings"]
 ```
 
-1. **Collector.** Find live matches in the target leagues automatically, record several at once, and store the recordings persistently.
-2. **Historical backfill.** Done for EuroLeague and EuroCup (2873 games). Pre-game lines are next: they are the strongest prior and are needed to measure value against the market.
-3. **Live integration.** Load the exported parameters in Node and build the new prediction UI on top of them.
+| Status | Item |
+|---|---|
+| Done | Minute-level backfill of 2873 EuroLeague/EuroCup games, validated against official scores |
+| Done | `eb_plus`: overtime mixture, trend and team priors, calibrated intervals |
+| Done | Live integration: exported model in Node (parity-tested), lock rule, over/under panel, several matches at once |
+| Next | **Lines.** Pre-game and live over/under lines: the strongest prior, and needed to measure value against the market |
+| Next | **Box score.** Team fouls and player statistics (EuroLeague API `Boxscore`; Flashscore player stats elsewhere) as features and as a panel section |
+| Later | **Other leagues.** Every watched match is recorded (`data/matches`); a league gets predictions once enough of its games are recorded and validated |
