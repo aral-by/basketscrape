@@ -17,6 +17,7 @@ Games that fail either check are skipped and counted.
 from __future__ import annotations
 
 import gzip
+import http.client
 import json
 import time
 import urllib.error
@@ -37,9 +38,11 @@ class Fetcher:
         self.delay, self.retries, self.timeout = delay, retries, timeout
         self._last = 0.0
         self.requests = 0
+        self.last_failed = False   # True when the last get() gave up on network errors
 
     def get(self, path: str, season: str, game: int):
         url = f"{BASE}/{path}?gamecode={game}&seasoncode={season}"
+        self.last_failed = False
         for attempt in range(self.retries):
             wait = self.delay - (time.monotonic() - self._last)
             if wait > 0:
@@ -54,9 +57,11 @@ class Fetcher:
             except urllib.error.HTTPError as e:
                 if e.code in (400, 404):
                     return None
-            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+            except (OSError, http.client.HTTPException, json.JSONDecodeError):
+                # OSError covers URLError, timeouts and "connection reset by peer"
                 pass
             time.sleep(2 ** attempt)
+        self.last_failed = True
         return None
 
 
@@ -159,6 +164,13 @@ def backfill_season(season: str, out_dir: Path, fetcher: Fetcher, max_misses: in
     while misses < max_misses:
         game += 1
         header = fetcher.get("Header", season, game)
+        outage = 0
+        while header is None and fetcher.last_failed and outage < 5:
+            # Network outage, not a missing game: wait and retry the same game code.
+            outage += 1
+            log(f"  {season}: network error at game {game}, retry {outage}/5 in 30 s")
+            time.sleep(30)
+            header = fetcher.get("Header", season, game)
         if not header or not header.get("TeamA"):
             misses += 1
             continue
