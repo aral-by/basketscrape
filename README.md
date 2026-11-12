@@ -1,200 +1,217 @@
 # BasketScrape
 
-A real-time basketball analytics web app that scrapes live Flashscore match data via Puppeteer, tracks scores minute by minute, and provides in-depth statistical analysis through an interactive sidebar dashboard.
+Real-time basketball analytics for live Flashscore matches. A headless Chromium session reads the scoreboard every two seconds, converts the cumulative score into **points per minute**, streams the result to a browser dashboard over Socket.IO, and records every watched match as training data for a **final-total (full-time) prediction model**.
+
+> **Scope:** FIBA format only (4 × 10-minute quarters, 5-minute overtimes). NBA (12-minute quarters) and NCAA (20-minute halves) are not supported yet.
 
 ---
 
-## Features
+## Contents
 
-- Paste any Flashscore live match URL to start tracking
-- Scrapes match data every 2 seconds in the background
-- Scores recorded minute by minute into period × minute tables
-- Mid-match start protection — first cell stays zero, baseline is set on arrival
-- Charts update live: per-minute scoring, tempo, and combined view
-- Warning banner shown when a match has no Flashscore statistics
-- **Exit Match** button stops the scraper and returns to the home screen
+- [Architecture](#architecture)
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Dashboard](#dashboard)
+- [Machine learning](#machine-learning)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Project structure](#project-structure)
+- [Documentation](#documentation)
 
 ---
 
-## Setup
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Browser
+        IDX["index.html<br/>match URL input"]
+        ANA["analysis.html<br/>tables · charts · metrics"]
+    end
+
+    subgraph Node["Node.js server"]
+        SRV["server.js<br/>Express + Socket.IO"]
+        WAT["scraper.js<br/>watcher lifecycle"]
+        SB["gameState.js<br/>per-minute score engine"]
+        REC["recorder.js<br/>match recorder"]
+    end
+
+    FS[("Flashscore<br/>match page")]
+    DATA[("data/matches/*.json")]
+    ML["ml/ (Python)<br/>training · evaluation"]
+
+    IDX -- "POST /start, /stop" --> SRV
+    SRV -- "startWatcher(url)" --> WAT
+    WAT -- "headless Chromium, every 2 s" --> FS
+    WAT -- "period, minute, score" --> SB
+    SB -- "state" --> SRV
+    SRV -- "scoreUpdate / matchStatus / matchEnd" --> ANA
+    SRV -- "update / finish" --> REC
+    REC --> DATA
+    DATA --> ML
+```
+
+| Component | Responsibility |
+|---|---|
+| `src/server.js` | HTTP API, Socket.IO broadcast, single active watcher, snapshot replay for late-joining tabs |
+| `src/scraper.js` | Browser lifecycle: wait for tip-off → main loop → finish. Crash recovery and stale-page reload |
+| `src/parse.js` | Pure parsers for period, minute, score and match status text; Flashscore URL allow-list |
+| `src/gameState.js` | Converts cumulative scores into per-minute points (baseline, overwrites, overtime, score corrections) |
+| `src/recorder.js` | Persists each match as minute-level cumulative scores for model training |
+| `public/` | Dashboard: score tables, charts, Four Factors, efficiency, heat map, parameters |
+| `ml/` | Python package: features, models, time-ordered validation, prediction-minute selection |
+
+---
+
+## Quick start
+
+Requires **Node.js ≥ 18**.
 
 ```bash
 npm install
-npm start
+npm start            # http://localhost:3010
 ```
 
-Open in browser: `http://localhost:3010`
+1. Paste a Flashscore basketball match URL and press **Start**.
+2. If the match has not started yet, the server keeps checking for tip-off in the background.
+3. Open the analysis page; it updates live. Tabs that open later receive the latest state immediately.
+4. **Exit Match** stops the scraper, including while it is still waiting for tip-off.
 
-### Multi-Instance Setup
+### Multiple instances (Windows)
 
-To run multiple instances simultaneously on different ports:
-
-```
+```bat
 kurulum.bat
 ```
 
-Creates `basketscrape-3020`, `basketscrape-3030`, `basketscrape-3040`, `basketscrape-3050` folders, each with its own port-configured `start.bat`.
+Creates sibling copies `basketscrape-3020`, `-3030`, `-3040` and `-3050`, installs dependencies in each, and writes a `start.bat` that sets `PORT` for that copy.
 
 ---
 
-## Machine Learning (`ml/`)
+## Configuration
 
-Every watched match is recorded to `data/matches/*.json` (minute-by-minute cumulative score +
-final score; disable with `RECORD_MATCHES=0`). The Python package in `ml/` trains and evaluates
-final-total (MS) models on these records and selects the Q3 prediction minute.
-Design, math and sample-size analysis: [`docs/ml-design.md`](docs/ml-design.md).
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `3010` | HTTP port |
+| `PUPPETEER_EXECUTABLE_PATH` | *(bundled Chrome)* | Use a system Chromium (required on Railway/Nix) |
+| `DATA_DIR` | `data/matches` | Where match recordings are written |
+| `RECORD_MATCHES` | `1` | Set to `0` to disable recording |
+
+Only Flashscore URLs are accepted (`flashscore.com`, `flashscore.com.tr`, `flashscore.co.uk`, …). Any other address, including `file://` and internal hosts, is rejected with `400`.
+
+---
+
+## Dashboard
+
+```mermaid
+flowchart TB
+    S["scoreUpdate"] --> T["Score tables<br/>raw · ×40 · combined · EG10"]
+    S --> C["Charts<br/>per-minute · total ×40 · EG10 · combined"]
+    S --> H["Heat map<br/>period × minute"]
+    S --> P["Parameters<br/>quarter tempo · patterns · predictions"]
+    S -- "stats (every 30 s)" --> M["Four Factors · Efficiency<br/>Shots · Possession · Statistics"]
+```
+
+| Tab | Content |
+|---|---|
+| Score tables | Period × minute grid per team: raw points, ×40 tempo, combined ×40, EG10 in-period projection |
+| Charts | Per-minute line charts and a combined home / away / total view |
+| Four Factors | Dean Oliver's eFG%, TOV%, ORB%, FTR as a radar chart |
+| Efficiency | Offensive, defensive and net rating; TS% |
+| Shots | Made and missed 2PT / 3PT / FT, stacked |
+| Possession | Estimated possessions per team |
+| Statistics | Flashscore statistics table as published |
+| Heat map | Scoring intensity by period and minute |
+| Parameters | Quarter tempo bars, pattern checks and the legacy heuristic predictions |
+
+Formulas are documented in [`docs/formula.md`](docs/formula.md). The heuristic predictions on the Parameters tab are not calibrated and are being replaced by the model in [`docs/ml-design.md`](docs/ml-design.md).
+
+---
+
+## Machine learning
+
+Every watched match is written to `data/matches/<date>_<matchId>.json`: the cumulative score at the end of each minute, plus the final score. The Python package in `ml/` uses these recordings to:
+
+- predict the **full-time total** from any live minute, with a calibrated prediction interval;
+- decide **which minute of the third quarter** to commit to a prediction;
+- test the **quarter-pattern hypotheses** (for example *"if Q2 > Q1 then Q4 ≥ Q3"*) against real data.
 
 ```bash
-cd ml && ../.venv/bin/python -m pytest
+python -m venv .venv && .venv/bin/pip install -r ml/requirements.txt
+cd ml
 ../.venv/bin/python -m basketml evaluate --data ../data/matches
+../.venv/bin/python -m basketml kriter1  --data ../data/matches
 ```
+
+The full design, the mathematics and the sample-size analysis are in [`docs/ml-design.md`](docs/ml-design.md).
 
 ---
 
-## Tests
+## Testing
 
 ```bash
-npm test
+npm test                                   # Node: 34 tests
+cd ml && ../.venv/bin/python -m pytest     # Python: 18 tests
 ```
 
-Runs the `node:test` suite: score engine, text parsers, URL allow-list and the watcher lifecycle
-(against a fake Puppeteer, so no browser or network is needed).
+| Suite | Covers |
+|---|---|
+| `test/gameState.test.js` | Per-minute derivation, baselines, overtime indexing, score corrections, invalid input |
+| `test/parse.test.js` | Period, minute, score and status parsing in Turkish and English; URL allow-list |
+| `test/scraper.test.js` | Watcher lifecycle against a fake Puppeteer: stop before tip-off, finish, crash recovery |
+| `test/recorder.test.js` | Recording format, mid-match starts, overtime, merging restarted sessions |
+| `ml/tests/` | No look-ahead leakage, model behaviour, calibration, validation folds, minute selection |
+
+No test needs a browser or network access.
 
 ---
 
-## Usage
+## Deployment
 
-1. Paste a Flashscore match URL on the home page
-2. Click **Start**
-3. Once the match begins, `analysis.html` updates automatically
-4. Navigate between analysis tabs using the left sidebar
-5. To switch matches, click **Exit Match** at the bottom of the sidebar
+`nixpacks.toml` configures Railway with a system Chromium. Container file systems on most platforms are ephemeral: mount a persistent volume and point `DATA_DIR` at it, or match recordings are lost on every redeploy.
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 basketscrape/
 ├── src/
-│   ├── server.js        # Express + Socket.IO server, /start and /stop endpoints
-│   ├── scraper.js       # Puppeteer-based Flashscore scraper (watcher lifecycle)
-│   ├── parse.js         # Pure text parsers + match URL allow-list
-│   └── gameState.js     # Minute-by-minute score calculation engine
-├── test/                # node:test suite (no browser or network needed)
-├── public/
-│   ├── index.html       # Match URL input page
-│   ├── app.js           # index.html socket handler
-│   ├── analysis.html    # Main analysis page (collapsible sidebar + 9 tabs)
-│   └── analysis.js      # Table, chart, and metric rendering logic
-├── kurulum.bat          # Multi-port setup script (3020/3030/3040/3050)
-└── nixpacks.toml        # Railway.app deployment config
+│   ├── server.js        HTTP API + Socket.IO
+│   ├── scraper.js       watcher lifecycle (Puppeteer)
+│   ├── parse.js         text parsers + URL allow-list
+│   ├── gameState.js     per-minute score engine
+│   └── recorder.js      match recordings for ML
+├── public/              dashboard (HTML, CSS, JS)
+├── test/                Node test suite
+├── ml/
+│   ├── basketml/        data · features · models · evaluate · timing · simulate
+│   └── tests/           pytest suite
+├── docs/
+│   ├── algo.md          scraping and scoring algorithm
+│   ├── formula.md       dashboard metrics
+│   └── ml-design.md     prediction model design
+├── kurulum.bat          multi-instance setup (Windows)
+└── nixpacks.toml        Railway configuration
 ```
 
 ---
 
-## Analysis Tabs
+## Documentation
 
-### Score Tables
-Period × Minute format table for each team:
-
-| | 1 | 2 | 3 | ... | 10 |
-|---|---|---|---|---|---|
-| Q1 | 3 | 0 | 5 | ... | |
-| Q2 | | | | | |
-
-- **Raw table:** points scored in that exact minute
-- **×40 table:** minute value × 40 (normalized tempo)
-- **Combined table:** (home + away) × 40
-- **EG10 table:** in-period pace projection — `(period cumulative up to minute m) × (40 / m)`, rounded up only when the fraction is ≥ 0.7
-
-### Charts
-- Per-minute home vs away line chart
-- Total scoring tempo chart
-- **Combined chart:** both teams + total on a single canvas
-
-### Four Factors (Dean Oliver)
-
-| Metric | Formula | Meaning |
-|--------|---------|---------|
-| eFG% | `(FGM + 0.5 × 3PM) / FGA` | Shooting efficiency weighted for 3-pointers |
-| TOV% | `TOV / (FGA + 0.44×FTA + TOV)` | Turnover rate — lower is better |
-| ORB% | `ORB / (ORB + opp_DRB)` | Offensive rebound capture rate |
-| FTR  | `FTA / FGA` | Free throw generation rate |
-
-### Efficiency
-
-| Metric | Formula |
-|--------|---------|
-| OffRtg | `100 × (pts / avgPoss)` |
-| DefRtg | Opponent's OffRtg |
-| NetRtg | `OffRtg − DefRtg` |
-| TS%    | `pts / (2 × (FGA + 0.44 × FTA))` |
-
-### Shot Chart
-2-pointer / 3-pointer / Free Throw — stacked bar chart showing makes and misses per team.
-
-### Possession
-Estimated possessions per team: `FGA − ORB + TOV + 0.44 × FTA`
-
-### Statistics
-Raw Flashscore statistics tab data displayed as a formatted table.
-
-### Heat Map
-Period × Minute canvas-based heat map — one per team, color intensity only (no numbers).
-
-### Parameters
-Quarter tempo bars, the "Regular Decline" pattern check and score-only heuristic predictions
-(halftime projection after minute 20, Q3 early projection after minute 25).
-
-> The current prediction engine is a set of hand-written heuristics, not a trained model, and its
-> confidence percentages are not calibrated probabilities. It is scheduled to be replaced by a
-> data-driven model.
+| Document | Topic |
+|---|---|
+| [`docs/algo.md`](docs/algo.md) | Watcher lifecycle, match-state detection, per-minute score engine, recording format |
+| [`docs/formula.md`](docs/formula.md) | Every metric shown on the dashboard, with its exact formula |
+| [`docs/ml-design.md`](docs/ml-design.md) | Final-total prediction: models, validation, minute selection, data requirements |
 
 ---
 
-## How the Algorithm Works
+## Tech stack
 
-The core challenge: Flashscore broadcasts **cumulative** scores, not per-minute deltas. The algorithm converts them in real time.
-
-```
-scoreboard at minute 7 = 54
-scoreboard at minute 6 = 49
-→ minute 7 scored = 54 − 49 = 5 points
-```
-
-**Key behaviors:**
-
-- **Mid-match start protection** — if the scraper connects at Q4 minute 5 with score 66–75, that update becomes the baseline. The cell stays at 0. No retroactive data is fabricated.
-- **Same-minute overwrites** — multiple scrapes within one minute overwrite the cell (not add). The last snapshot before minute change is used.
-- **Skipped minutes** — if a minute is missed due to timing, it is filled with 0.
-- **Overtime** — the 40-cell array expands by 5 cells per overtime period (OT1 = minutes 41–45, OT2 = 46–50, …).
-- **Score corrections** — if Flashscore lowers a score by ≤ 3 points (e.g. a 3 changed to a 2), the difference is removed from that team's most recent cells. Larger drops are treated as scrape errors and the reading is ignored.
-- **Time never goes backwards** — a reading with an earlier minute than the last one is ignored.
-
-Full algorithm documentation: [`docs/algo.md`](docs/algo.md)
-
----
-
-## Technical Notes
-
-**Score calculation** (`gameState.js`): Flashscore broadcasts cumulative scores. `lastHomeSeen` / `lastAwaySeen` baseline tracking is used to derive per-minute deltas. When a scraper starts mid-match, the first update sets the baseline and the cell stays at zero — no retroactive data is assumed.
-
-**Stat name resolution** (`computeMetrics`): Flashscore stat labels vary by match type and language. `findStat` tries Turkish/English keyword variants. "Alan Golü" = total FG (not 2P only) — `resolveFg()` auto-detects and separates 2P from total FG to prevent double-counting in eFG%.
-
-**Watcher lifecycle** (`scraper.js`): `startWatcher()` returns `{ stop }` immediately; waiting for kick-off and the main loop run in the background, so a match can be cancelled before it starts. If Chromium crashes or 5 reads fail in a row, the browser is relaunched and the collected minute data is kept. If nothing changes on the page for 2 minutes, it is reloaded. Before kick-off the page is polled every 10 seconds.
-
-**Server** (`server.js`): only Flashscore URLs are accepted (`/start` rejects anything else with 400). The last status/score snapshot is replayed to newly connected browser tabs.
-
-**Puppeteer on cloud:** If `PUPPETEER_EXECUTABLE_PATH` env variable is set, system Chromium is used; otherwise Puppeteer uses its bundled Chrome.
-
----
-
-## Tech Stack
-
-| Package | Version | Usage |
-|---------|---------|-------|
-| express | ^5.2 | HTTP server, static file serving |
-| socket.io | ^4.8 | Real-time bidirectional data transfer |
-| puppeteer | ^24 | Headless Chrome for Flashscore scraping |
-| chart.js | 4.4.2 (CDN) | Line, radar, bar, doughnut charts |
+| Package | Version | Use |
+|---|---|---|
+| express | ^5.2 | HTTP server, static files |
+| socket.io | ^4.8 | Real-time updates |
+| puppeteer | ^24 | Headless Chromium |
+| chart.js | 4.4.2 (CDN) | Charts |
+| numpy · pandas · scikit-learn · scipy | see `ml/requirements.txt` | Modelling and evaluation |
