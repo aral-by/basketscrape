@@ -150,7 +150,7 @@ The full design, the mathematics and the sample-size analysis are in [`docs/ml-d
 
 ```bash
 npm test                                   # Node: 34 tests
-cd ml && ../.venv/bin/python -m pytest     # Python: 18 tests
+cd ml && ../.venv/bin/python -m pytest     # Python: 35 tests
 ```
 
 | Suite | Covers |

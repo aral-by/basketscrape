@@ -21,7 +21,7 @@ from .analysis import kriter1_test, learning_curve
 from .data import load_matches, match_from_record
 from .evaluate import out_of_sample, summarize
 from .features import build_dataset
-from .models import MODEL_REGISTRY, EmpiricalBayesPace
+from .models import MODEL_REGISTRY, EmpiricalBayesPlus
 from .simulate import simulate
 
 pd.set_option("display.width", 200)
@@ -102,8 +102,8 @@ def cmd_learning_curve(args):
 def cmd_export(args):
     matches = _load(args)
     df = build_dataset(matches, list(range(1, 40)))
-    eb = EmpiricalBayesPace().fit(df)
-    out = {"model": "empirical_bayes", "n_matches": len(matches), **eb.params()}
+    eb = EmpiricalBayesPlus().fit(df)
+    out = {"model": "eb_plus", "n_matches": len(matches), **eb.params()}
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps(out, indent=1))
     print(f"{args.out} yazıldı: k={eb.k_:.1f}, μ={eb.mu_ * 40:.1f}/maç, φ={eb.phi_:.2f}")
@@ -135,9 +135,9 @@ def main(argv=None):
     e = sub.add_parser("evaluate"); data_args(e)
     e.add_argument("--minutes", default="21-36")
     e.add_argument("--models", default=",".join(MODEL_REGISTRY))
-    e.add_argument("--timing-model", default="empirical_bayes")
+    e.add_argument("--timing-model", default="eb_plus")
     e.add_argument("--delta", type=float, default=1.0, help="eşdeğerlik payı (puan)")
-    e.add_argument("--sd-target", type=float, default=14.0)
+    e.add_argument("--sd-target", type=float, default=9.5)
     e.set_defaults(fn=cmd_evaluate)
 
     k = sub.add_parser("kriter1"); data_args(k); k.set_defaults(fn=cmd_kriter1)

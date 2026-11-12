@@ -90,7 +90,9 @@ def match_from_record(rec: dict) -> Match | None:
         final_home=float(final["home"]),
         final_away=float(final["away"]),
         pregame_line=rec.get("pregameLine"),
-        meta={"firstObservedMinute": rec.get("firstObservedMinute")},
+        meta={"firstObservedMinute": rec.get("firstObservedMinute"),
+              "home": (rec.get("homeName") or "").strip(),
+              "away": (rec.get("awayName") or "").strip()},
     )
 
 
