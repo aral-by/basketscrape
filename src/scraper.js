@@ -1,4 +1,4 @@
-const puppeteer = require('puppeteer');
+const { shared: sharedPool } = require('./browserPool');
 const ScoreBoard = require('./gameState');
 const { parseQuarter, parseMinute, parseScore, isMatchFinished, isHalftime } = require('./parse');
 
@@ -229,19 +229,20 @@ function isStarted(data) {
 //
 // onStatus({ status: 'not_started'|'running'|'finished'|'error', homeName, awayName, message })
 // onEnd yalnızca maç kendiliğinden bittiğinde veya hata oluştuğunda çağrılır, stop() ile değil.
-// opts: zamanlama sabitlerini geçersiz kılmak için (testlerde kullanılır).
+// opts: zamanlama sabitlerini geçersiz kılmak için (testlerde kullanılır); opts.pool: sekmenin
+// açılacağı tarayıcı havuzu (varsayılan: tüm maçların paylaştığı tek Chrome).
 function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
   const {
     mainInterval      = MAIN_INTERVAL,
     startPollInterval = START_POLL_INTERVAL,
     statsInterval     = STATS_INTERVAL,
     staleReloadMs     = STALE_RELOAD_MS,
+    pool              = sharedPool,
   } = opts;
   const log    = onLog    || (() => {});
   const status = onStatus || (() => {});
 
-  let browser = null;
-  let page    = null;
+  let page    = null;   // bu maçın ortak Chrome'daki sekmesi
   let stopped = false;
   let wakeTimer   = null;
   let wakeResolve = null;
@@ -263,10 +264,9 @@ function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
   }
 
   function closeBrowser() {
-    const b = browser;
-    browser = null;
-    page    = null;
-    if (b) b.close().catch(() => {});
+    const p = page;
+    page = null;
+    if (p) pool.release(p).catch(() => {});
   }
 
   function stop() {
@@ -285,35 +285,22 @@ function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
 
   async function openBrowser() {
     closeBrowser();
-    const b = await puppeteer.launch({
-      headless: true,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-      ],
-    });
-    if (stopped) { b.close().catch(() => {}); return; }
-
-    browser = b;
-    b.on('disconnected', () => {
-      if (browser !== b) return; // bilerek kapatıldı
-      browser = null;
-      page    = null;
+    let p = null;
+    p = await pool.acquire(() => {
+      // Ortak Chrome çöktü: sekme gitti, bir sonraki turda yeniden açılır.
+      if (page !== p) return;
+      page = null;
       if (!stopped) log('Tarayıcı bağlantısı koptu, yeniden açılacak.');
     });
-
-    const p = await b.newPage();
-    await p.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-    );
-    await p.setViewport({ width: 1280, height: 800 });
+    if (stopped) { pool.release(p).catch(() => {}); return; }
     log('Sayfa açılıyor...');
-    await loadPage(p, url, log, 30_000);
-    if (browser === b) page = p;
+    page = p;
+    try {
+      await loadPage(p, url, log, 30_000);
+    } catch (e) {
+      if (page === p) closeBrowser();
+      throw e;
+    }
   }
 
   function finishedResult(reason) {
@@ -460,7 +447,7 @@ function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
         errors++;
         log('Scrape hatası: ' + e.message);
         if (errors >= MAX_CONSECUTIVE_ERRORS) {
-          log(`${errors} ardışık hata, tarayıcı yeniden başlatılacak.`);
+          log(`${errors} ardışık hata, sekme yeniden açılacak.`);
           closeBrowser();
           errors = 0;
         }

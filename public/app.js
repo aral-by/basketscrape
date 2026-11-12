@@ -1,4 +1,5 @@
-/* BasketScrape panel: live score + full-time total prediction (eb_plus model). */
+/* BasketScrape panel: live score + full-time total prediction (eb_plus model).
+ * Several matches are watched at once; each has a tab and the panel shows the selected one. */
 (() => {
   'use strict';
   const socket = io();
@@ -19,13 +20,15 @@
   };
 
   let model = null;       // /api/model
-  let score = null;       // son scoreUpdate
-  let pred = null;        // son prediction
+  const matches = new Map();   // id → { id, url, status, update, prediction, end, logs }
+  let order = [];              // sekme sırası
+  let selected = null;         // seçili maçın id'si
+  let score = null;       // seçili maçın son scoreUpdate'i
+  let pred = null;        // seçili maçın son prediction'ı
   let basis = store.get('basis', 'lock');
   let chart = null;
 
   ui.thr.value = store.get('thr', '0.8');
-  ui.line.value = store.get('line', '');
   setBasis(basis);
 
   // ── yardımcılar ─────────────────────────────────────────────────────────
@@ -51,10 +54,13 @@
     if (!on) $('statsCard').hidden = true;
   }
 
-  function log(msg) {
-    const pre = $('log');
-    const time = new Date().toLocaleTimeString('tr-TR');
-    pre.textContent = `${time}  ${msg}\n` + pre.textContent.slice(0, 20000);
+  function logLine({ at, msg }) {
+    return `${new Date(at || Date.now()).toLocaleTimeString('tr-TR')}  ${msg}\n`;
+  }
+
+  function renderLog() {
+    const m = matches.get(selected);
+    $('log').textContent = m ? m.logs.slice().reverse().map(logLine).join('') : '';
   }
 
   function periodLabel(p) {
@@ -62,52 +68,52 @@
     return p <= 4 ? `${p}. Çeyrek` : `${p - 4}. Uzatma`;
   }
 
-  // ── başlat / durdur ─────────────────────────────────────────────────────
+  // ── maç ekle / kaldır ───────────────────────────────────────────────────
   ui.form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const url = ui.url.value.trim();
     if (!url) return;
     ui.start.disabled = true;
-    ui.start.textContent = 'Bağlanıyor…';
-    setStatus('waiting', 'Bağlanıyor');
-    score = null; pred = null;
+    ui.start.textContent = 'Ekleniyor…';
     try {
-      const res = await fetch('/start', {
+      const res = await fetch('/api/matches', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }),
       });
+      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setStatus('error', err.error || 'Bağlantı hatası');
-        ui.start.disabled = false;
-        ui.start.textContent = 'Başlat';
-        return;
+        setStatus('error', body.error || 'Bağlantı hatası');
+      } else {
+        ui.url.value = '';
+        select(body.id);
       }
-      store.set('url', url);
-      ui.stop.hidden = false;
     } catch {
       setStatus('error', 'Sunucuya ulaşılamadı');
-      ui.start.disabled = false;
-      ui.start.textContent = 'Başlat';
     }
+    ui.start.disabled = false;
+    ui.start.textContent = '+ Maç ekle';
   });
 
-  ui.stop.addEventListener('click', async () => {
-    ui.stop.disabled = true;
-    await fetch('/stop', { method: 'POST' }).catch(() => {});
-    ui.stop.disabled = false;
-  });
+  async function removeMatch(id) {
+    if (!id) return;
+    await fetch('/api/matches/' + encodeURIComponent(id), { method: 'DELETE' }).catch(() => {});
+  }
 
-  ui.line.addEventListener('input', () => { store.set('line', ui.line.value); renderLine(); renderChart(); renderBand(); });
+  ui.stop.addEventListener('click', () => removeMatch(selected));
+
+  ui.line.addEventListener('input', () => {
+    if (selected) store.set('line.' + selected, ui.line.value);
+    renderLine(); renderChart(); renderBand(); renderTabs();
+  });
   document.querySelectorAll('.btn-step').forEach((b) => b.addEventListener('click', () => {
     const v = parseFloat(ui.line.value);
     const base = isFinite(v) ? v : Math.round(currentMix()?.meanReg ?? 160) + 0.5;
     ui.line.value = (base + Number(b.dataset.step)).toFixed(1).replace(/\.0$/, '');
     ui.line.dispatchEvent(new Event('input'));
   }));
-  ui.thr.addEventListener('change', () => { store.set('thr', ui.thr.value); renderLine(); });
+  ui.thr.addEventListener('change', () => { store.set('thr', ui.thr.value); renderLine(); renderTabs(); });
   ui.seg.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-basis]');
-    if (b) { setBasis(b.dataset.basis); renderLine(); }
+    if (b) { setBasis(b.dataset.basis); renderLine(); renderTabs(); }
   });
 
   function setBasis(b) {
@@ -116,55 +122,196 @@
     ui.seg.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.basis === b));
   }
 
-  // ── socket olayları ─────────────────────────────────────────────────────
-  socket.on('matchStatus', ({ status, homeName, awayName, message }) => {
-    const teams = homeName && awayName ? `${homeName} – ${awayName}` : '';
-    if (status === 'not_started') {
-      setStatus('waiting', 'Maç bekleniyor');
-      ui.start.disabled = false; ui.start.textContent = 'Yeniden başlat'; ui.stop.hidden = false;
-      if (teams) log(`Bekleniyor: ${teams}`);
-    } else if (status === 'running') {
-      setStatus('live', 'Canlı');
-      ui.start.disabled = false; ui.start.textContent = 'Yeniden başlat'; ui.stop.hidden = false;
-    } else if (status === 'finished') {
-      setStatus('idle', 'Maç bitti');
-      ui.start.disabled = false; ui.start.textContent = 'Başlat'; ui.stop.hidden = true;
-    } else if (status === 'error') {
-      setStatus('error', message || 'Hata');
-      ui.start.disabled = false; ui.start.textContent = 'Başlat'; ui.stop.hidden = true;
-    } else if (status === 'stopped') {
-      setStatus('idle', 'Bekliyor');
-      ui.start.disabled = false; ui.start.textContent = 'Başlat'; ui.stop.hidden = true;
-      score = null; pred = null;
-      showMatch(false);
-    }
-  });
+  // ── maç durumu ──────────────────────────────────────────────────────────
+  function statusOf(m) {
+    const st = (m.status && m.status.status) || 'starting';
+    if (m.end && m.end.reason !== 'error') return ['idle', 'Maç bitti'];
+    if (st === 'running') return ['live', 'Canlı'];
+    if (st === 'not_started') return ['waiting', 'Maç bekleniyor'];
+    if (st === 'starting') return ['waiting', 'Bağlanıyor'];
+    if (st === 'finished') return ['idle', 'Maç bitti'];
+    if (st === 'error') return ['error', (m.status && m.status.message) || 'Hata'];
+    return ['idle', 'Bekliyor'];
+  }
 
-  socket.on('scoreUpdate', (s) => {
-    score = s;
-    showMatch(true);
+  function upsert(snap) {
+    const m = matches.get(snap.id) || { logs: [] };
+    Object.assign(m, snap);
+    m.logs = m.logs || [];
+    matches.set(snap.id, m);
+    if (!order.includes(snap.id)) order.push(snap.id);
+    return m;
+  }
+
+  function select(id) {
+    if (id && !matches.has(id)) { selected = id; return; }   // olay birazdan gelecek
+    selected = id && matches.has(id) ? id : (order[0] || null);
+    try { history.replaceState(null, '', selected ? '#' + selected : location.pathname); } catch { /* yok */ }
+    const m = matches.get(selected);
+    score = m ? m.update : null;
+    pred = m ? m.prediction : null;
+    ui.line.value = selected ? store.get('line.' + selected, '') : '';
+    renderAll();
+  }
+
+  function renderAll() {
+    const m = matches.get(selected);
+    renderTabs();
+    showMatch(!!m);
+    ui.stop.hidden = !m;
+    if (!m) {
+      setStatus('idle', matches.size ? 'Bekliyor' : 'Maç yok');
+      return;
+    }
+    const [st, text] = statusOf(m);
+    setStatus(st, text);
     renderScore();
     renderGrid();
     renderStats();
-  });
-
-  socket.on('prediction', (p) => {
-    pred = p;
-    showMatch(true);
     renderPrediction();
     renderLine();
     renderChart();
     renderModel();
-    renderGrid();
+    renderLog();
+  }
+
+  function refreshSelected(id) {
+    const m = matches.get(id);
+    if (!m) return false;
+    if (id === selected) {
+      score = m.update;
+      pred = m.prediction;
+      return true;
+    }
+    renderTabs();
+    return false;
+  }
+
+  // ── socket olayları ─────────────────────────────────────────────────────
+  socket.on('matches', ({ matches: list }) => {
+    matches.clear();
+    order = [];
+    (list || []).forEach(upsert);
+    const want = (location.hash || '').slice(1);
+    select(matches.has(want) ? want : (matches.has(selected) ? selected : order[0] || null));
   });
 
-  socket.on('matchEnd', (r) => {
-    if (r && r.reason === 'error') return;
-    setStatus('idle', 'Maç bitti');
-    log('Maç sona erdi.');
+  socket.on('match:added', (snap) => {
+    upsert(snap);
+    if (!selected || snap.id === selected) select(snap.id);
+    else renderTabs();
   });
 
-  socket.on('log', log);
+  socket.on('match:removed', ({ id }) => {
+    matches.delete(id);
+    order = order.filter((x) => x !== id);
+    if (id === selected) select(order[order.length - 1] || null);
+    else renderTabs();
+  });
+
+  socket.on('match:status', ({ id, status }) => {
+    const m = matches.get(id);
+    if (!m) return;
+    m.status = status;
+    if (refreshSelected(id)) renderAll();
+  });
+
+  socket.on('match:update', ({ id, state }) => {
+    const m = matches.get(id);
+    if (!m) return;
+    m.update = state;
+    if (refreshSelected(id)) {
+      showMatch(true);
+      renderScore();
+      renderGrid();
+      renderStats();
+      renderTabs();
+    }
+  });
+
+  socket.on('match:prediction', ({ id, prediction }) => {
+    const m = matches.get(id);
+    if (!m) return;
+    m.prediction = prediction;
+    if (refreshSelected(id)) {
+      renderPrediction();
+      renderLine();
+      renderChart();
+      renderModel();
+      renderGrid();
+      renderTabs();
+    }
+  });
+
+  socket.on('match:end', ({ id, result }) => {
+    const m = matches.get(id);
+    if (!m) return;
+    m.end = result;
+    if (refreshSelected(id)) renderAll();
+  });
+
+  socket.on('match:log', ({ id, at, msg }) => {
+    const m = matches.get(id);
+    if (!m) return;
+    m.logs.push({ at, msg });
+    if (m.logs.length > 60) m.logs.shift();
+    if (id === selected) $('log').textContent = logLine({ at, msg }) + $('log').textContent.slice(0, 20000);
+  });
+
+  // ── sekmeler ────────────────────────────────────────────────────────────
+  function shortName(name) {
+    const w = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!w.length) return '?';
+    const first = w[0].length <= 3 && w[1] ? `${w[0]} ${w[1]}` : w[0];
+    return first.length > 14 ? first.slice(0, 13) + '…' : first;
+  }
+
+  function tabBadge(m) {
+    const p = m.prediction;
+    if (!p || !p.available) return null;
+    const L = parseFloat(store.get('line.' + m.id, ''));
+    const thr = parseFloat(ui.thr.value);
+    const ref = p.lock || (basis === 'live' ? p.now : null);
+    if (!ref) return null;
+    if (!isFinite(L)) return p.lock ? { kind: 'lock', text: `KİLİT ${Math.round(p.lock.mean)}` } : null;
+    const q = probOver(ref.mix, L);
+    const conf = Math.max(q, 1 - q);
+    if (conf >= thr) return { kind: q >= 0.5 ? 'over' : 'under', text: `${q >= 0.5 ? 'ÜST' : 'ALT'} %${Math.round(conf * 100)}` };
+    return { kind: 'pass', text: `PAS %${Math.round(conf * 100)}` };
+  }
+
+  function renderTabs() {
+    const nav = $('tabs');
+    nav.hidden = matches.size === 0;
+    nav.replaceChildren();
+    for (const id of order) {
+      const m = matches.get(id);
+      if (!m) continue;
+      const u = m.update;
+      const tab = el('button', 'tab' + (id === selected ? ' on' : ''));
+      tab.type = 'button';
+      tab.dataset.state = statusOf(m)[0];
+      tab.title = m.url;
+      tab.append(el('span', 'dot'));
+      const names = u && u.homeName ? `${shortName(u.homeName)} – ${shortName(u.awayName)}` : 'Yeni maç';
+      tab.append(el('span', 'tab-names', names));
+      if (u) tab.append(el('span', 'tab-score', `${u.homeScore ?? 0}-${u.awayScore ?? 0}`));
+      if (u && !m.end) tab.append(el('span', 'tab-min', u.period ? `${u.period <= 4 ? 'Ç' + u.period : 'U' + (u.period - 4)} ${u.minute || ''}'` : ''));
+      if (m.end && m.end.reason !== 'error') tab.append(el('span', 'tab-min', 'MS'));
+      const badge = tabBadge(m);
+      if (badge) {
+        const b = el('span', 'tab-badge', badge.text);
+        b.dataset.kind = badge.kind;
+        tab.append(b);
+      }
+      const x = el('span', 'tab-x', '×');
+      x.title = 'Maçı kaldır';
+      x.addEventListener('click', (e) => { e.stopPropagation(); removeMatch(id); });
+      tab.append(x);
+      tab.addEventListener('click', () => select(id));
+      nav.append(tab);
+    }
+  }
 
   // ── skor tabelası ───────────────────────────────────────────────────────
   function quarterSums(s) {
@@ -507,5 +654,4 @@
     renderIntroFacts();
     renderModel();
   }).catch(() => { model = null; renderIntroFacts(); });
-  ui.url.value = store.get('url', '');
 })();

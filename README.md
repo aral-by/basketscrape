@@ -42,7 +42,7 @@ flowchart LR
     DATA[("data/matches/*.json")]
     ML["ml/ (Python)<br/>training · evaluation"]
 
-    ANA -- "POST /start, /stop" --> SRV
+    ANA -- "POST/DELETE /api/matches" --> SRV
     SRV -- "startWatcher(url)" --> WAT
     WAT -- "headless Chromium, every 2 s" --> FS
     WAT -- "period, minute, score" --> SB
@@ -59,7 +59,9 @@ flowchart LR
 
 | Component | Responsibility |
 |---|---|
-| `src/server.js` | HTTP API, Socket.IO broadcast, single active watcher, snapshot replay for late-joining tabs |
+| `src/server.js` | HTTP API, Socket.IO broadcast, snapshot of every match for late-joining windows |
+| `src/matchManager.js` | Several matches at once: one session (watcher, recorder, forecast) per match, events tagged with the match id, resumes open matches after a restart |
+| `src/browserPool.js` | One shared headless Chrome; each match is a tab (images, fonts and video are not loaded) |
 | `src/scraper.js` | Browser lifecycle: wait for tip-off → main loop → finish. Crash recovery and stale-page reload |
 | `src/parse.js` | Pure parsers for period, minute, score and match status text; Flashscore URL allow-list |
 | `src/gameState.js` | Converts cumulative scores into per-minute points (baseline, overwrites, overtime, score corrections) |
@@ -74,6 +76,27 @@ flowchart LR
 
 ## Quick start
 
+### Windows: one-click install
+
+Download **[`BasketScrape-Kurulum.bat`](https://github.com/aral-by/basketscrape/raw/main/BasketScrape-Kurulum.bat)** and double-click it. If Windows SmartScreen warns, choose *More info → Run anyway*. The installer:
+
+1. installs Node.js LTS if it is missing (winget, or the official MSI);
+2. downloads the app from GitHub into `%LOCALAPPDATA%\BasketScrape` and installs its packages;
+3. puts a **BasketScrape** icon on the desktop and in the Start menu, then opens the app.
+
+The icon starts the server in a minimised window and opens the panel in its own app window (Edge or Chrome `--app` mode). On every start it pulls the latest version from GitHub (`scripts/update.js`); recordings and the list of open matches in `data/` are never touched. Clicking the icon while the app is running just opens another window. Closing the minimised console window stops the app.
+
+```mermaid
+flowchart LR
+    K["BasketScrape-Kurulum.bat"] --> N{"Node.js ≥ 18?"}
+    N -- no --> I["winget / nodejs.org MSI"] --> D
+    N -- yes --> D["update.js<br/>GitHub tarball → %LOCALAPPDATA%\\BasketScrape"]
+    D --> P["npm install"] --> L["desktop icon"]
+    L -. "every start" .-> U["launch.js: update → server → app window"]
+```
+
+### Any OS
+
 Requires **Node.js ≥ 18**.
 
 ```bash
@@ -81,22 +104,14 @@ npm install
 npm start            # http://localhost:3010
 ```
 
-1. Paste a Flashscore **EuroLeague** or **EuroCup** match URL and press **Start**.
-2. If the match has not started yet, the server keeps checking for tip-off in the background.
-3. The panel updates live. Type the bookmaker's line to get the over/under probability.
-4. **Stop** ends the session, including while it is still waiting for tip-off.
+1. Paste a Flashscore **EuroLeague** or **EuroCup** match URL and press **+ Maç ekle**. Add as many matches as you like: each gets a tab at the top, and all of them are watched at the same time in one shared Chrome.
+2. Matches that have not started yet are watched in the background until tip-off.
+3. The panel shows the selected match. Type the bookmaker's line to get the over/under probability; each tab shows its match's verdict.
+4. **×** on a tab (or **Maçı kaldır**) stops that match. Open matches resume automatically after a restart.
 
 Other leagues are still tracked and recorded, but the panel shows no prediction: the model has only been validated on EuroLeague and EuroCup.
 
-**Demo without Flashscore:** `DEMO_GAME=E2025-013 DEMO_SPEED=1500 npm start` (or `DEMO_GAME=random`), then start with any Flashscore URL. A finished game from `ml/datasets/euroleague` is replayed minute by minute.
-
-### Multiple instances (Windows)
-
-```bat
-kurulum.bat
-```
-
-Creates sibling copies `basketscrape-3020`, `-3030`, `-3040` and `-3050`, installs dependencies in each, and writes a `start.bat` that sets `PORT` for that copy.
+**Demo without Flashscore:** `DEMO_GAME=random DEMO_SPEED=1500 npm start`, then add any Flashscore URL (several, if you like). Finished games from `ml/datasets/euroleague` are replayed minute by minute.
 
 ---
 
@@ -111,6 +126,10 @@ Creates sibling copies `basketscrape-3020`, `-3030`, `-3040` and `-3050`, instal
 | `MODEL_PATH` | `models/eb_plus.json` | Prediction model exported by `python -m basketml export` |
 | `DEMO_GAME` | *(off)* | Replay a dataset game (`E2025-013`, `random`) instead of scraping |
 | `DEMO_SPEED` | `1500` | Demo: milliseconds per game minute |
+| `MAX_MATCHES` | `8` | Matches watched at the same time |
+| `SESSIONS_FILE` | `data/sessions.json` | Open matches, resumed after a restart |
+| `OPEN_BROWSER` | *(off)* | `1` opens the panel in an app window on start (set by the launcher) |
+| `BASKETSCRAPE_BRANCH` | `main` | Branch the installer and updater download |
 
 Only Flashscore URLs are accepted (`flashscore.com`, `flashscore.com.tr`, `flashscore.co.uk`, …). Any other address, including `file://` and internal hosts, is rejected with `400`.
 
@@ -225,7 +244,9 @@ basketscrape/
 │   ├── algo.md          scraping and scoring algorithm
 │   ├── formula.md       panel numbers and formulas
 │   └── ml-design.md     prediction model design
-├── kurulum.bat          multi-instance setup (Windows)
+├── BasketScrape-Kurulum.bat  one-click Windows installer
+├── BasketScrape.bat     launcher used by the desktop icon
+├── scripts/             update.js (GitHub updater), launch.js (launcher)
 └── nixpacks.toml        Railway configuration
 ```
 

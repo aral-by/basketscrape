@@ -27,7 +27,8 @@ const fake = {
 };
 
 class FakePage {
-  constructor(browser) { this.browser = browser; }
+  constructor(browser) { this.browser = browser; this.closed = false; }
+  async close() { this.closed = true; }
   async setUserAgent() {}
   async setViewport() {}
   async goto() { this._check(); }
@@ -46,7 +47,12 @@ class FakePage {
 
 class FakeBrowser extends EventEmitter {
   constructor() { super(); this.closed = false; }
-  async newPage() { return new FakePage(this); }
+  async newPage() {
+    if (this.closed) throw new Error('Browser closed');
+    const p = new FakePage(this);
+    (this.pages ||= []).push(p);
+    return p;
+  }
   async close() {
     if (this.closed) return;
     this.closed = true;
@@ -206,4 +212,37 @@ test('stop() sonrasında hiçbir callback tetiklenmez', async () => {
   fake.setDom({ period: 'Bitti', home: '2', away: '0' });
   await tick(40);
   assert.deepEqual([ev.updates.length, ev.ends.length, ev.statuses.length], counts);
+});
+
+test('aynı anda izlenen maçlar tek Chrome\'u paylaşır, her maç kendi sekmesinde', async () => {
+  fake.setDom({ period: '1. Çeyrek', minute: "1'", home: '0', away: '0' });
+  const a = watch();
+  const b = watch();
+  const c = watch();
+  await waitFor(() => [a, b, c].every(x => x.ev.updates.length > 0));
+  assert.equal(fake.launches, 1, 'tek tarayıcı');
+  assert.equal(fake.browsers[0].pages.length, 3, 'üç sekme');
+
+  a.w.stop();
+  await tick(20);
+  assert.equal(fake.browsers[0].closed, false, 'diğer maçlar sürerken tarayıcı açık kalır');
+  assert.equal(fake.browsers[0].pages.filter(p => p.closed).length, 1);
+
+  b.w.stop();
+  c.w.stop();
+  await tick(20);
+  assert.equal(fake.browsers[0].closed, true, 'son sekme kapanınca tarayıcı da kapanır');
+});
+
+test('ortak Chrome çökerse tüm maçlar yeni tek bir tarayıcıda devam eder', async () => {
+  fake.setDom({ period: '2. Çeyrek', minute: "1'", home: '20', away: '20' });
+  const a = watch();
+  const b = watch();
+  await waitFor(() => a.ev.updates.length > 0 && b.ev.updates.length > 0);
+  fake.browsers[0].crash();
+  fake.setDom({ period: '2. Çeyrek', minute: "2'", home: '22', away: '21' });
+  await waitFor(() => [a, b].every(x => x.ev.updates.some(u => u.lastAbsoluteMinute === 12)));
+  assert.equal(fake.launches, 2, 'çökme sonrası yalnızca bir yeni tarayıcı');
+  a.w.stop();
+  b.w.stop();
 });

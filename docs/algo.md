@@ -15,34 +15,33 @@ sequenceDiagram
     participant F as Flashscore
     participant R as Recorder
 
-    U->>S: POST /start {url}
-    S->>S: validate URL (Flashscore only)
-    S->>S: stop previous watcher + recorder
-    S->>W: startWatcher(url)
+    U->>S: POST /api/matches {url}
+    S->>S: validate URL (Flashscore only), same match already open?
+    S->>W: startWatcher(url) — one session per match
     W-->>S: { stop } (returns immediately)
-    S-->>U: 200 { ok: true }
+    S-->>U: 201 { id }
 
-    W->>F: launch Chromium, open match page
+    W->>F: open a tab in the shared Chromium
     loop until tip-off (every 10 s)
         W->>F: reload, read status
-        W-->>U: matchStatus: not_started
+        W-->>U: match:status not_started
     end
-    W-->>U: matchStatus: running
+    W-->>U: match:status running
     loop every 2 s
         W->>F: read period, minute, score
         W->>W: ScoreBoard.update()
         W-->>S: state
         S->>R: update(state)
-        S-->>U: scoreUpdate
+        S-->>U: match:update {id}
     end
     W-->>S: onEnd(final)
     S->>R: finish(final)
-    S-->>U: matchEnd
+    S-->>U: match:end {id}
 ```
 
-`/start` returns as soon as the watcher is created. Waiting for tip-off can take hours, so it happens in the background, and `/stop` can cancel the watcher at any point.
+`POST /api/matches` returns as soon as the watcher is created. Waiting for tip-off can take hours, so it happens in the background, and `DELETE /api/matches/:id` can cancel that match at any point. Several matches run side by side (`MAX_MATCHES`, default 8); each is a tab in one shared headless Chromium (`browserPool.js`), which closes with the last tab and is relaunched once if it crashes.
 
-Callbacks from a watcher that is no longer the active one are ignored, so a late event from a stopped match can never overwrite the state of the current one.
+Every event carries its match id, and callbacks from a watcher whose match was removed are ignored, so a late event can never overwrite another match's state. Open matches are saved to `data/sessions.json` and resumed when the server restarts.
 
 ---
 
@@ -58,16 +57,16 @@ stateDiagram-v2
     WaitingForTipOff --> Running: period or halftime detected
     WaitingForTipOff --> Finished: status text is "finished"
     Running --> Running: read every 2 s
-    Running --> Recovering: browser crashed or 5 consecutive errors
+    Running --> Recovering: shared browser crashed or 5 consecutive errors
     Recovering --> Running: relaunch, ScoreBoard kept
     Running --> Finished: status text is "finished"
     Launching --> Error: launch or first load failed
-    Finished --> [*]: onEnd(final), browser closed
+    Finished --> [*]: onEnd(final), tab closed
     Error --> [*]: onEnd(error)
 
     note right of Running
         stop() is valid in every state:
-        browser closed, no further callbacks
+        tab closed, no further callbacks
     end note
 ```
 
@@ -77,7 +76,7 @@ stateDiagram-v2
 | Tip-off polling | 10 s | Page reload while waiting for the match to start |
 | Statistics refresh | 30 s | Re-reads the statistics tab |
 | Stale-page reload | 120 s | Reloads if period, minute and score have not changed |
-| Error threshold | 5 | Consecutive failed reads before the browser is relaunched |
+| Error threshold | 5 | Consecutive failed reads before the tab is reopened |
 
 The basketball clock stops often, so a minute can last several real minutes. The 120-second stale threshold is set so that a reload during a normal stoppage is harmless.
 

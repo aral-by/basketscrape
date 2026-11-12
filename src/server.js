@@ -1,16 +1,23 @@
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
 const path = require('path');
+const { Server } = require('socket.io');
+const { isAllowedMatchUrl } = require('./parse');
+const { MatchManager } = require('./matchManager');
+const { loadPredictor } = require('./liveForecast');
+const { shared: browserPool } = require('./browserPool');
+const { openApp } = require('./openApp');
+
 // DEMO_GAME=<id|random>: Flashscore yerine veri setindeki bitmiş bir maçı yeniden oynatır.
 const { startWatcher } = process.env.DEMO_GAME ? require('./demo') : require('./scraper');
-const { isAllowedMatchUrl } = require('./parse');
-const { MatchRecorder } = require('./recorder');
-const { LiveForecast, loadPredictor } = require('./liveForecast');
 
 // ML eğitim verisi: izlenen her maç buraya kaydedilir. RECORD_MATCHES=0 ile kapatılabilir.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data/matches');
 const RECORD_MATCHES = process.env.RECORD_MATCHES !== '0';
+// İzlenen maç listesi: sunucu yeniden başlarsa maçlar kaldığı yerden devam eder.
+const SESSIONS_FILE = process.env.SESSIONS_FILE || path.join(__dirname, '../data/sessions.json');
+const MAX_MATCHES = Number(process.env.MAX_MATCHES || 8);
+const PORT = process.env.PORT || 3010;
 
 const app = express();
 const server = http.createServer(app);
@@ -18,7 +25,15 @@ const io = new Server(server);
 
 const predictor = loadPredictor();
 if (!predictor) console.warn('UYARI: models/eb_plus.json yüklenemedi — tahminler kapalı.');
-const forecast = new LiveForecast(predictor);
+
+const manager = new MatchManager({
+  startWatcher,
+  emit: (event, payload) => io.emit(event, payload),
+  predictor,
+  dataDir: RECORD_MATCHES ? DATA_DIR : null,
+  sessionsFile: process.env.DEMO_GAME ? null : SESSIONS_FILE,
+  maxMatches: MAX_MATCHES,
+});
 
 app.use(express.json());
 // Eski panel adresi yeni panele yönlenir.
@@ -26,109 +41,62 @@ app.get('/analysis.html', (req, res) => res.redirect(301, '/'));
 app.use(express.static(path.join(__dirname, '../public')));
 // Tahmin matematiği tarayıcıda da çalışır (barem yazılırken Üst/Alt olasılığı anında hesaplanır).
 app.get('/lib/predictor.js', (req, res) => res.sendFile(path.join(__dirname, 'predictor.js')));
-app.get('/api/model', (req, res) => res.json(forecast.info()));
 
-let activeWatcher  = null;
-let activeRecorder = null;
+const modelInfo = () => {
+  if (!predictor) return { available: false };
+  const m = predictor.m;
+  return {
+    available: true, model: m.model, nMatches: m.n_matches, trainedUntil: m.trained_until,
+    leagues: m.leagues_trained, lockRule: m.lock_rule, validation: m.validation,
+  };
+};
+app.get('/api/model', (req, res) => res.json(modelInfo()));
 
-// Sonradan bağlanan sekmeler (örn. analiz sayfası) boş ekran görmesin diye son durum saklanır.
-let lastStatus = null;
-let lastUpdate = null;
-let lastEnd    = null;
-let lastPrediction = null;
+app.get('/api/matches', (req, res) => res.json({ matches: manager.list(), maxMatches: MAX_MATCHES }));
 
-function clearSnapshot() {
-  lastStatus = null;
-  lastUpdate = null;
-  lastEnd    = null;
-  lastPrediction = null;
-  forecast.reset();
-}
-
-io.on('connection', (socket) => {
-  if (lastStatus) socket.emit('matchStatus', lastStatus);
-  if (lastUpdate) socket.emit('scoreUpdate', lastUpdate);
-  if (lastEnd)    socket.emit('matchEnd', lastEnd);
-  if (lastPrediction) socket.emit('prediction', lastPrediction);
-});
-
-function stopActive() {
-  if (activeWatcher) {
-    activeWatcher.stop();
-    activeWatcher = null;
-  }
-  if (activeRecorder) {
-    activeRecorder.stop();
-    activeRecorder = null;
-  }
-}
-
-app.post('/start', (req, res) => {
+app.post('/api/matches', (req, res) => {
   const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
   if (!url) return res.status(400).json({ error: 'URL gerekli' });
   if (!isAllowedMatchUrl(url)) {
     return res.status(400).json({ error: 'Yalnızca Flashscore maç adresleri kabul edilir.' });
   }
-
-  stopActive();
-  clearSnapshot();
-  io.emit('log', 'Scraper başlatılıyor...');
-
-  const recorder = RECORD_MATCHES ? new MatchRecorder(url, { dir: DATA_DIR }) : null;
-
-  // startWatcher hemen döner; maçın başlamasını arka planda bekler.
-  // Callback'ler yalnızca HÂLÂ aktif olan watcher içinse yayın yapar — eski bir
-  // watcher'ın geç gelen olayları yenisinin durumunu ezmesin.
-  const watcher = startWatcher(
-    url,
-    (state) => {
-      if (activeWatcher !== watcher) return;
-      if (recorder) recorder.update(state);
-      lastUpdate = state;
-      io.emit('scoreUpdate', state);
-      lastPrediction = forecast.update(state);
-      io.emit('prediction', lastPrediction);
-    },
-    (result) => {
-      if (activeWatcher !== watcher) return;
-      if (recorder) recorder.finish(result);
-      lastEnd = result;
-      const done = forecast.finish(result);
-      if (done) {
-        lastPrediction = done;
-        io.emit('prediction', done);
-      }
-      activeWatcher = null;
-      activeRecorder = null;
-      io.emit('matchEnd', result);
-    },
-    (msg) => {
-      if (activeWatcher !== watcher) return;
-      io.emit('log', msg);
-    },
-    (statusInfo) => {
-      if (activeWatcher !== watcher) return;
-      lastStatus = statusInfo;
-      io.emit('matchStatus', statusInfo);
-    }
-  );
-  activeWatcher  = watcher;
-  activeRecorder = recorder;
-
-  res.json({ ok: true });
-});
-
-app.post('/stop', (req, res) => {
-  if (activeWatcher) {
-    stopActive();
-    clearSnapshot();
-    io.emit('matchStatus', { status: 'stopped', message: 'Scraper durduruldu.' });
-    io.emit('log', 'Scraper durduruldu.');
+  try {
+    const { session, existed } = manager.add(url);
+    res.status(existed ? 200 : 201).json({ id: session.id, existed });
+  } catch (e) {
+    res.status(e.code === 'LIMIT' ? 409 : 500).json({ error: e.message });
   }
-  res.json({ ok: true });
 });
 
-const PORT = process.env.PORT || 3010;
-server.listen(PORT, () => {
-  console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
+app.delete('/api/matches/:id', (req, res) => {
+  res.json({ ok: manager.remove(req.params.id) });
 });
+
+// Sonradan açılan sekmeler tüm maçların son durumunu hemen alır.
+io.on('connection', (socket) => {
+  socket.emit('matches', { matches: manager.list(), maxMatches: MAX_MATCHES });
+});
+
+server.listen(PORT, () => {
+  const url = `http://localhost:${PORT}`;
+  console.log(`Sunucu çalışıyor: ${url}`);
+  const restored = manager.restore();
+  if (restored) console.log(`${restored} maç kaldığı yerden izlenmeye devam ediyor.`);
+  if (process.env.OPEN_BROWSER === '1') openApp(url);
+});
+
+server.on('error', (e) => {
+  if (e.code !== 'EADDRINUSE') throw e;
+  // Program zaten açık: ikinci kopya başlatmak yerine mevcut pencereyi aç.
+  console.log(`BasketScrape zaten çalışıyor (port ${PORT}).`);
+  if (process.env.OPEN_BROWSER === '1') openApp(`http://localhost:${PORT}`);
+  setTimeout(() => process.exit(0), 500);
+});
+
+function shutdown() {
+  manager.stopAll();
+  browserPool.closeAll().finally(() => process.exit(0));
+  setTimeout(() => process.exit(0), 3000).unref();
+}
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
