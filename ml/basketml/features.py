@@ -8,6 +8,8 @@ Gösterim:
 """
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import pandas as pd
 
@@ -17,6 +19,18 @@ from .data import Match
 FEATURE_COLUMNS = [
     "S", "pace", "last5", "last10", "q1", "q2", "q3_sofar", "q3_proj", "margin",
 ]
+
+
+def league_key(name: str | None) -> str:
+    """Normalises a competition name from any source to a stable key:
+    "EUROLEAGUE 2023-24" (API) → "euroleague"; "BasketballEuropeEuroleague - Round 11"
+    (live breadcrumb) → "basketballeuropeeuroleague". Models match keys by suffix, so both
+    resolve to the same league (see models.EmpiricalBayesPace._league_mu)."""
+    if not name:
+        return ""
+    head = str(name).split(" - ")[0]
+    head = re.sub(r"\d{4}(-\d{2,4})?", "", head)
+    return re.sub(r"[^a-z]", "", head.lower())
 
 
 def features_at(m: Match, t: int) -> dict:
@@ -57,6 +71,6 @@ def build_dataset(matches: list[Match], minutes: list[int]) -> pd.DataFrame:
             if t > len(m.cum_total) or np.isnan(m.at(t)):
                 continue  # o dakika gözlenmemiş (maç ortası başlangıç)
             f = features_at(m, t)
-            f.update(match_id=m.id, order=order, league=m.league, y=y, R=y - f["S"])
+            f.update(match_id=m.id, order=order, league=league_key(m.league), y=y, R=y - f["S"])
             rows.append(f)
     return pd.DataFrame(rows)

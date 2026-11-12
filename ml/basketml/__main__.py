@@ -109,6 +109,16 @@ def cmd_export(args):
     print(f"{args.out} yazıldı: k={eb.k_:.1f}, μ={eb.mu_ * 40:.1f}/maç, φ={eb.phi_:.2f}")
 
 
+def cmd_backfill(args):
+    from .euroleague import Fetcher, backfill_season
+    fetcher = Fetcher(delay=args.delay)
+    total = 0
+    for season in args.seasons:
+        st = backfill_season(season, Path(args.out), fetcher)
+        total += st.kept
+    print(f"done: {total} games, {fetcher.requests} requests")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="basketml")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -141,6 +151,12 @@ def main(argv=None):
     x = sub.add_parser("export"); data_args(x)
     x.add_argument("--out", default="artifacts/model.json")
     x.set_defaults(fn=cmd_export)
+
+    b = sub.add_parser("backfill-euroleague", help="EuroLeague/EuroCup minute data from the official API")
+    b.add_argument("--seasons", nargs="+", required=True, help="e.g. E2023 U2023 (E=EuroLeague, U=EuroCup)")
+    b.add_argument("--out", default="datasets/euroleague")
+    b.add_argument("--delay", type=float, default=0.35, help="seconds between requests")
+    b.set_defaults(fn=cmd_backfill)
 
     args = p.parse_args(argv)
     args.fn(args)

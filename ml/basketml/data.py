@@ -1,6 +1,7 @@
 """Node kayıt modülünün (src/recorder.js) yazdığı JSON maç kayıtlarını okur."""
 from __future__ import annotations
 
+import gzip
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -93,16 +94,27 @@ def match_from_record(rec: dict) -> Match | None:
     )
 
 
-def load_matches(directory: str | Path) -> list[Match]:
-    """Klasördeki tüm kayıtları okur, kayıt zamanına göre sıralar (zaman sıralı doğrulama için)."""
-    matches = []
-    for path in sorted(Path(directory).glob("*.json")):
+def iter_records(directory: str | Path):
+    """Yields raw records from *.json files (live recorder) and *.jsonl.gz files (backfills),
+    searching subdirectories too. Unreadable files are skipped."""
+    root = Path(directory)
+    for path in sorted(root.rglob("*.json")):
         try:
-            rec = json.loads(path.read_text(encoding="utf-8"))
+            yield json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             continue
-        m = match_from_record(rec)
-        if m is not None:
-            matches.append(m)
+    for path in sorted(root.rglob("*.jsonl.gz")):
+        try:
+            with gzip.open(path, "rt", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        yield json.loads(line)
+        except (json.JSONDecodeError, OSError, EOFError):
+            continue
+
+
+def load_matches(directory: str | Path) -> list[Match]:
+    """Loads all usable finished matches, sorted by time (needed for time-ordered validation)."""
+    matches = [m for m in (match_from_record(r) for r in iter_records(directory)) if m is not None]
     matches.sort(key=lambda m: (m.recorded_at, m.id))
     return matches
