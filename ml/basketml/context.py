@@ -24,13 +24,18 @@ from .features import league_key
 
 
 def pregame_context(matches: list[Match], league_half_life: float = 150, team_half_life: float = 12,
-                    team_prior_games: float = 6, min_league_matches: int = 20) -> dict[str, dict]:
+                    team_prior_games: float = 6, min_league_matches: int = 20,
+                    return_state: bool = False):
+    """Per-match context {id: {lg_recent, team_dev}}. With return_state=True also returns the
+    state after the last match, i.e. what the live app needs for the NEXT match:
+    {"leagues": {key: {"mean", "n"}}, "teams": {key: {name: {"dev", "n", "last"}}}}."""
     a_lg = 1 - 0.5 ** (1 / league_half_life)
     a_tm = 1 - 0.5 ** (1 / team_half_life)
     lg_mean: dict[str, float] = {}
     lg_n: dict[str, int] = {}
     tm_dev: dict[tuple, float] = {}
     tm_n: dict[tuple, int] = {}
+    tm_last: dict[tuple, str] = {}
     out: dict[str, dict] = {}
 
     def team_value(key):
@@ -65,8 +70,17 @@ def pregame_context(matches: list[Match], league_half_life: float = 150, team_ha
                     dev = reg - prev
                     tm_dev[key] = dev if key not in tm_dev else tm_dev[key] + a_tm * (dev - tm_dev[key])
                     tm_n[key] = tm_n.get(key, 0) + 1
+                    tm_last[key] = m.recorded_at
             n = lg_n.get(lk, 0)
             # plain mean while the league is young, EWMA afterwards
             lg_mean[lk] = reg if prev is None else prev + max(a_lg, 1 / (n + 1)) * (reg - prev)
             lg_n[lk] = n + 1
-    return out
+    if not return_state:
+        return out
+    state = {"leagues": {k: {"mean": lg_mean[k], "n": lg_n[k]} for k in lg_mean
+                         if lg_n[k] >= min_league_matches},
+             "teams": {}}
+    for (lk, name), n in tm_n.items():
+        state["teams"].setdefault(lk, {})[name] = {
+            "dev": team_value((lk, name)), "n": n, "last": tm_last[(lk, name)]}
+    return out, state

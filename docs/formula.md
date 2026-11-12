@@ -1,182 +1,143 @@
-# Dashboard Metrics
+# Prediction Panel: Numbers and Formulas
 
-Every number shown on the analysis page, with the exact formula used in `public/analysis.js` and `public/analysis.html`.
+Every number on the panel, where it comes from, and the code that computes it. The model itself (why these formulas, how they were validated) is described in [`ml-design.md`](ml-design.md).
 
 ```mermaid
 flowchart LR
-    subgraph Inputs
-        MIN["per-minute points<br/>(gameState.js)"]
-        ST["Flashscore statistics<br/>(every 30 s)"]
-        SC["live score"]
+    subgraph Server["Node.js server"]
+        SB["gameState.js<br/>points per minute"] --> CM["completedMinutes()<br/>end-of-minute scores"]
+        CM --> PR["Predictor.predict()<br/>eb_plus"]
+        CTX["Predictor.context()<br/>league + team prior"] --> PR
+        PR --> LF["LiveForecast<br/>history · lock"]
     end
-    MIN --> TBL["Score tables<br/>raw · ×40 · combined · EG10"]
-    MIN --> HM["Heat map"]
-    MIN --> PAR["Parameters tab"]
-    ST --> RES["Stat resolution<br/>findStat · resolveFg"]
-    RES --> FF["Four Factors"]
-    RES --> POS["Possessions"]
-    RES --> SHOT["Shot chart"]
-    POS --> EFF["Ratings"]
-    SC --> EFF
-    SC --> TS["TS%"]
-    RES --> TS
+    MJ[("models/eb_plus.json")] --> CTX
+    MJ --> PR
+    LF -- "prediction" --> UI
+    subgraph Browser
+        UI["app.js"] --> PO["probOver(mix, line)"]
+        LINE["typed line"] --> PO
+    end
 ```
 
-Notation: `m` is the absolute minute (1–40, then 41+ for overtime) and `x_m` is the points scored in minute `m`.
+Notation: `t` is the number of **completed** minutes (1–39), `S_t` the total score at the end of minute `t`, `r = 40 − t` the regulation minutes left.
 
 ---
 
-## 1. Score tables
+## 1. Model inputs: completed minutes only
 
-| Table | Cell value | Meaning |
-|---|---|---|
-| Raw | `x_m` | Points in that minute |
-| ×40 | `40 · x_m` | That minute's scoring rate extended over a full game |
-| Combined ×40 | `40 · (x_m(home) + x_m(away))` | Same for both teams together |
-| EG10 | see below | In-period projection to a full game |
-
-### EG10
-
-EG10 projects the scoring rate **within the current period** to a full 40-minute game. It restarts at the beginning of each period. For minute `j` of a period:
+The model was trained on end-of-minute scores. The minute in progress is not finished, so the newest input is minute `t = m − 1`, where `m` is the live minute:
 
 ```math
-\mathrm{EG10}_j = \operatorname{round}_{0.7}\!\left( \frac{40}{j} \sum_{i=1}^{j} x_i \right),
-\qquad
-\operatorname{round}_{0.7}(v) =
-\begin{cases}
-\lfloor v \rfloor + 1, & v - \lfloor v \rfloor \ge 0.7\\
-\lfloor v \rfloor, & \text{otherwise}
-\end{cases}
+S_{m-1} = \text{live score} - \text{points scored so far in minute } m
 ```
 
-The custom rounding goes up only when the fractional part is at least 0.7. Overtime periods use the same formula over their 5 minutes.
+`completedMinutes()` walks back from the live score through the per-minute cells. When the session joined mid-game at minute `j`, minutes before `j` are unknown and are not reconstructed, so the history starts at `t = j`.
 
----
+A prediction therefore updates once per game minute, as soon as the next minute begins.
 
-## 2. Statistic resolution
+## 2. Pre-game context
 
-Flashscore labels differ by language and competition. `findStat` looks for the first statistic whose name contains any of a list of Turkish or English keywords:
+`Predictor.context(league, home, away)` reads the exported state:
 
-| Quantity | Keywords |
+| Value | Meaning |
 |---|---|
-| Field goals (total) | `alan gol`, `sahadan`, `field goal` |
-| 2-pointers only | `iki say`, `2 say`, `2-say` |
-| 3-pointers | `üç say`, `3 say`, `üçlük`, `three` |
-| Free throws | `serbest atış`, `free throw`, `serbest` |
-| Offensive rebounds | `hücum rib`, `ofansif r`, `off reb` |
-| Defensive rebounds | `savunma rib`, `defansif r`, `def reb` |
-| Turnovers | `top kayb`, `turnover`, `kayıp` |
-| Assists | `asist`, `assist` |
+| `lg_recent` | Recent league mean of the regulation total (EWMA, half-life 150 games) |
+| `team_dev` | Sum of the two teams' scoring tendency (shrunk EWMA deviation from the league mean) |
 
-Values such as `24/51` are parsed as made / attempted. Flashscore's "Alan Golü" is **total** field goals (2PT + 3PT). `resolveFg` therefore derives two-pointers instead of adding them twice:
+League names are normalised and suffix-matched, so `EUROPE: Euroleague` and `EUROLEAGUE 2025-26` both resolve to `euroleague`. Team names are matched by shared words; when several model teams match (sponsor renames), the most recent one wins. A team that is not found contributes 0.
+
+**League gate.** If the league is not one the model was trained on (EuroLeague, EuroCup), the panel shows no prediction.
+
+## 3. Full-time total
+
+```math
+\mu = \frac{b_0 + b_1\,\text{lg\_recent} + b_2\,\text{team\_dev}}{40}, \qquad
+\hat\lambda_t = \frac{S_t + k\mu}{t + k}
+```
+
+```math
+\hat R^{\text{reg}}_t = \rho_t\,\hat\lambda_t\,r, \qquad
+\hat T = S_t + \hat R^{\text{reg}}_t + p_{OT}\,E_{OT}
+```
+
+| Panel label | Value |
+|---|---|
+| **MS toplam tahmini** | `T̂` |
+| **%80 aralık** | `T̂ ± 1.2816 · σ̂` |
+| **Belirsizlik** | `± 1.2816 · σ̂`, the half-width of the 80 % interval |
+| **Uzatma ihtimali** | `p_OT` |
+| **Canlı tahmin** | `T̂` at the newest completed minute, even after the lock |
+
+### Uncertainty
+
+```math
+\operatorname{Var}_{\text{reg}} = \varphi\left[\rho_t\hat\lambda_t r + \frac{(\rho_t r)^2\hat\lambda_t}{t+k}\right]
+```
+
+```math
+\hat\sigma = c_t\sqrt{\operatorname{Var}_{\text{reg}} + p_{OT}V_{OT} + p_{OT}(1-p_{OT})E_{OT}^2}
+```
+
+`c_t` (`sd_scale`) rescales the standard deviation so that the 80 % interval covered exactly 80 % of the training games.
+
+### Overtime probability
+
+```math
+z = \frac{|\text{margin}|}{\sqrt{\varphi\,\rho_t\hat\lambda_t r + 1}}, \qquad
+p_{OT} = \frac{1}{1 + e^{-(a + c_1 z + c_2 z^2)}}
+```
+
+`E_OT` and `V_OT` are the mean and variance of the points scored in overtime by games that went to overtime (25.1 points on average).
+
+## 4. Lock
 
 ```mermaid
-flowchart TD
-    A{"total FG available<br/>and FGA ≥ 3PA?"} -- yes --> B["FGM, FGA = total<br/>2PM = FGM − 3PM<br/>2PA = FGA − 3PA"]
-    A -- no --> C["FGM = 2PM + 3PM<br/>FGA = 2PA + 3PA"]
+stateDiagram-v2
+    [*] --> Early: t < 21
+    Early --> Window: t = 21
+    Window --> Locked: σ̂ ≤ 9.5
+    Window --> Locked: t = 30
+    Locked --> Final: match ends
 ```
 
----
+The prediction is locked at the first completed minute `t` in 21…30 with `σ̂ ≤ 9.5`, that is with an 80 % interval no wider than ±12.2. If that never happens, it is locked at minute 30. On real data this rule fires at minute 28.5 on average, with a mean error of 7.5 points (`ml-design.md` §6, §9).
 
-## 3. Four Factors (Dean Oliver)
+After the match ends, the panel shows the final total and the lock's error (`final − locked T̂`).
 
-| Factor | Formula | Shown on radar as |
-|---|---|---|
-| Effective FG% | `eFG% = (FGM + 0.5 · 3PM) / FGA` | `eFG%` |
-| Turnover rate | `TOV% = TOV / (FGA + 0.44 · FTA + TOV)` | `1 − TOV%`, so that higher is better |
-| Offensive rebound rate | `ORB% = ORB / (ORB + opponent DRB)` | `ORB%` |
-| Free throw rate | `FTR = FTA / FGA` | `min(FTR, 1)` |
+## 5. Over / under
 
-All four axes share a 0–1 scale. Any denominator of 0 is replaced by 1, and non-finite results are shown as 0.
-
----
-
-## 4. Possessions and efficiency
-
-Possessions per team use Oliver's estimate, with a floor of 1:
+The total is a two-component mixture: no overtime, or overtime. For a line `L`:
 
 ```math
-\mathrm{Poss} = \max\left(1,\ \mathrm{FGA} - \mathrm{ORB} + \mathrm{TOV} + 0.44 \cdot \mathrm{FTA}\right)
+P(\text{over}) = (1-p_{OT})\left[1-\Phi\!\left(\frac{L - \hat T^{\text{reg}}}{c'_t\,\sigma_{\text{reg}}}\right)\right]
++ p_{OT}\left[1-\Phi\!\left(\frac{L - \hat T^{\text{reg}} - E_{OT}}{c'_t\sqrt{\sigma_{\text{reg}}^2 + V_{OT}}}\right)\right]
 ```
 
-Ratings use the **average** of both teams' possessions as a common denominator, because both teams have almost the same number of possessions in a game:
+`c'_t` (`reg_scale`) is the interval calibration fitted on games without overtime. Because of the overtime tail the distribution is right-skewed, so `P(total > T̂)` is slightly below 0.5.
 
-| Metric | Formula |
+The browser computes this from the `mix` object in each prediction, so typing a line gives an instant answer. **Kilitli tahmin / Canlı tahmin** chooses which prediction's mix is used.
+
+| Verdict | Condition |
 |---|---|
-| Average possessions | `avgPoss = (Poss_home + Poss_away) / 2` |
-| Offensive rating | `OffRtg = 100 · PTS / avgPoss` |
-| Defensive rating | `DefRtg = opponent's OffRtg` |
-| Net rating | `NetRtg = OffRtg − DefRtg` |
-| True shooting % | `TS% = PTS / (2 · (FGA + 0.44 · FTA))` |
+| **ÜST · güven X** | `P(over) ≥ threshold` |
+| **ALT · güven X** | `P(under) ≥ threshold` |
+| **PAS** | neither side reaches the threshold (default 80 %) |
+| **Kilit bekleniyor** | basis is the locked prediction and no lock exists yet |
 
-`PTS` comes from the live score (every 2 s) and the box-score inputs from the statistics tab (every 30 s), so mid-game ratings can lag the score by up to 30 seconds.
+On the 1724 validation games, `P(over)` was calibrated: when it said 0.8–0.9, the over won 85.6 % of the time.
 
----
+## 6. Minute grid and quarter scores
 
-## 5. Shot chart
+Each cell is `home_m + away_m`, the points scored by both teams in minute `m`. The row total is the quarter (or overtime) total. Cell shading is proportional to the points, the live minute has an orange outline and the lock minute is underlined in green.
 
-Stacked bars per team:
+## 7. Model card
 
-| Segment | Value |
+The validation numbers are taken from `models/eb_plus.json`. `python -m basketml export` computes them out-of-sample and writes them alongside the parameters:
+
+| Row | Source |
 |---|---|
-| 2PT made / missed | `2PM`, `2PA − 2PM` |
-| 3PT made / missed | `3PM`, `3PA − 3PM` |
-| FT made / missed | `FTM`, `FTA − FTM` |
+| `t. dk ortalama hata` | Out-of-sample MAE at minute `t` |
+| `t. dk %80 aralık isabeti` | Share of games inside the 80 % interval at minute `t` |
+| `t. dk ±5 içinde` | Share of predictions within 5 points |
 
----
-
-## 6. Heat map
-
-One canvas per team: 4 periods (columns) × 10 minutes (rows). The colour opacity of each cell is
-
-```math
-\alpha_m = 0.05 + 0.90 \cdot \frac{x_m}{\max_k x_k}
-```
-
-and minutes without points stay empty. No numbers are drawn.
-
----
-
-## 7. Parameters tab (legacy heuristics)
-
-> These rules are hand-written heuristics, not trained models. Their "confidence" values are fixed formulas, not measured probabilities. They are being replaced by the model described in [`ml-design.md`](ml-design.md), which also tests the pattern claims below against recorded matches.
-
-Let `Q1 … Q4` be the combined points per quarter, and `S_t` the cumulative combined score after minute `t`.
-
-### Regular Decline pattern
-
-```mermaid
-flowchart LR
-    A{"Q1 and Q2<br/>played?"} -- no --> W["Waiting"]
-    A -- yes --> B{"Q1 > Q2?"}
-    B -- no --> X["Does not apply"]
-    B -- yes --> C{"Q3 played?"}
-    C -- no --> D["Active:<br/>expects Q3 > Q4"]
-    C -- yes --> E{"Q3 > Q4?"}
-    E -- yes --> OK["Confirmed"]
-    E -- no --> BR["Broken"]
-```
-
-### Prediction A — halftime (from minute 20)
-
-| Output | Rule |
-|---|---|
-| Winner | Leader after Q1 + Q2; on a tie, the team that scored more in Q2 |
-| Full-time total | `(Q1 + Q2) · 2` |
-| Over / Under | `Over` if `Q2 > Q1`, `Under` if `Q2 < Q1`, otherwise neutral |
-| Confidence | `min(70 + 2 · |Q2 − Q1|, 95)` % |
-
-### Prediction B — early third quarter (from minute 25)
-
-```math
-\text{overall pace} = \frac{S_{25}}{25},\qquad
-\text{recent pace} = \frac{S_{25} - S_{15}}{10},\qquad
-\widehat{T} = \operatorname{round}\left(S_{25} + 15 \cdot \text{recent pace}\right)
-```
-
-| Output | Rule |
-|---|---|
-| Winner | Leader after minute 25; on a tie, the stronger team in minutes 16–25 |
-| Full-time total | `T̂` above |
-| Over / Under | `Over` if recent pace > overall pace, `Under` if lower |
-| Confidence | `min(55 + 15 · |recent − overall|, 90)` % |
+`t` is the lock minute once locked, otherwise the current minute.

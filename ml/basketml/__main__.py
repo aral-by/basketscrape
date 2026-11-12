@@ -100,13 +100,46 @@ def cmd_learning_curve(args):
 
 
 def cmd_export(args):
+    """Model parameters + current league/team context + out-of-sample validation for the
+    live app (src/predictor.js). Optionally writes parity cases for the Node test suite."""
+    from .context import pregame_context
     matches = _load(args)
     df = build_dataset(matches, list(range(1, 40)))
     eb = EmpiricalBayesPlus().fit(df)
-    out = {"model": "eb_plus", "n_matches": len(matches), **eb.params()}
+    _, state = pregame_context(matches, return_state=True)
+
+    val = summarize(out_of_sample(build_dataset(matches, list(range(15, 40))),
+                                  {"eb_plus": EmpiricalBayesPlus}))
+    validation = {int(r.t): {"MAE": round(r.MAE, 3), "cov80": round(r.cov80, 3),
+                             "within5": round(r.within5, 3), "n": int(r.n)}
+                  for r in val.itertuples()}
+    out = {"model": "eb_plus", "schema": 2, "n_matches": len(matches),
+           "trained_until": matches[-1].recorded_at if matches else None,
+           "leagues_trained": sorted(df["league"].dropna().unique().tolist()),
+           "lock_rule": {"from": 21, "to": 30, "sd_target": args.sd_target},
+           **eb.params(), "context": state, "validation": validation}
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps(out, indent=1))
+    Path(args.out).write_text(json.dumps(out, separators=(",", ":")))
     print(f"{args.out} yazıldı: k={eb.k_:.1f}, μ={eb.mu_ * 40:.1f}/maç, φ={eb.phi_:.2f}")
+
+    if args.parity_out:
+        rng = np.random.default_rng(0)
+        rows = df.sample(n=min(200, len(df)), random_state=0).reset_index(drop=True)
+        rows["line"] = np.nan
+        rows.loc[rows.index[:150], "lg_recent"] = rows["lg_recent"][:150]
+        rows.loc[rows.index[150:175], ["lg_recent", "team_dev"]] = np.nan   # fallback path
+        mean, sd = eb.predict(rows)
+        lines = np.round(mean + rng.uniform(-15, 15, len(rows))) + 0.5
+        cases = [{"t": int(r.t), "S": float(r.S), "margin": float(r.margin), "league": r.league,
+                  "lgRecent": None if np.isnan(r.lg_recent) else float(r.lg_recent),
+                  "teamDev": None if np.isnan(r.team_dev) else float(r.team_dev),
+                  "line": float(L), "mean": float(m), "sd": float(s),
+                  "pOT": float(p), "pOver": float(po)}
+                 for r, m, s, L, p, po in zip(rows.itertuples(), mean, sd, lines,
+                                               eb.p_overtime(rows), eb.prob_over(rows, lines))]
+        Path(args.parity_out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.parity_out).write_text(json.dumps(cases, indent=0))
+        print(f"{args.parity_out}: {len(cases)} parity cases")
 
 
 def cmd_backfill(args):
@@ -152,7 +185,9 @@ def main(argv=None):
     lc.set_defaults(fn=cmd_learning_curve)
 
     x = sub.add_parser("export"); data_args(x)
-    x.add_argument("--out", default="artifacts/model.json")
+    x.add_argument("--out", default="../models/eb_plus.json")
+    x.add_argument("--parity-out", help="write Node parity test cases (test/fixtures/...)")
+    x.add_argument("--sd-target", type=float, default=9.5, help="lock rule σ* for the live app")
     x.set_defaults(fn=cmd_export)
 
     b = sub.add_parser("backfill-euroleague", help="EuroLeague/EuroCup minute data from the official API")
