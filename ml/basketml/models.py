@@ -105,9 +105,25 @@ class EmpiricalBayesPace:
     def __init__(self, k_grid=None):
         self.k_grid = k_grid if k_grid is not None else np.geomspace(0.5, 400, 60)
 
+    MIN_LEAGUE_MATCHES = 30
+
+    def _league_mu(self, key: str) -> float:
+        """League prior: exact key, else a known key that the given key ends with
+        (live breadcrumb "basketballeuropeeuroleague" → "euroleague"), else global."""
+        if key in self.league_mu_:
+            return self.league_mu_[key]
+        for k, v in self.league_mu_.items():
+            if k and key.endswith(k):
+                return v
+        return self.mu_
+
     def _prior(self, df):
         line = df["line"].to_numpy(dtype=float)
-        mu = np.full(len(df), self.mu_)
+        if "league" in df and self.league_mu_:
+            cache = {k: self._league_mu(k) for k in df["league"].fillna("").unique()}
+            mu = df["league"].fillna("").map(cache).to_numpy(dtype=float, copy=True)
+        else:
+            mu = np.full(len(df), self.mu_)
         has = ~np.isnan(line)
         mu[has] = line[has] / REGULATION_MINUTES * self.line_scale_
         return mu
@@ -118,6 +134,11 @@ class EmpiricalBayesPace:
     def fit(self, df: pd.DataFrame):
         per_match = df.drop_duplicates("match_id")
         self.mu_ = float(per_match["y"].mean() / REGULATION_MINUTES)
+        self.league_mu_ = {}
+        if "league" in per_match:
+            for key, g in per_match.groupby(per_match["league"].fillna("")):
+                if key and len(g) >= self.MIN_LEAGUE_MATCHES:
+                    self.league_mu_[key] = float(g["y"].mean() / REGULATION_MINUTES)
         lines = per_match["line"].to_numpy(dtype=float)
         has = ~np.isnan(lines)
         # Barem sistematik olarak yüksek/düşükse ölçekle (barem ≈ beklenen toplam olmalı)
@@ -167,7 +188,8 @@ class EmpiricalBayesPace:
         return mean, sd
 
     def params(self) -> dict:
-        return {"mu_per_min": self.mu_, "k": float(self.k_), "phi": self.phi_,
+        return {"mu_per_min": self.mu_, "league_mu_per_min": self.league_mu_,
+                "k": float(self.k_), "phi": self.phi_,
                 "line_scale": self.line_scale_, "rho": self.rho_.tolist()}
 
 

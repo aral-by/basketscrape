@@ -201,3 +201,23 @@ def test_simulated_records_round_trip_through_disk(tmp_path):
     ms = load_matches(tmp_path)
     assert len(ms) == 5
     assert all(m.final_total == m.at(len(m.cum_total)) for m in ms)
+
+
+def test_league_key_normalises_sources():
+    from basketml.features import league_key
+    assert league_key("EUROLEAGUE 2023-24") == "euroleague"
+    assert league_key("EUROCUP 2021-22") == "eurocup"
+    assert league_key("BasketballEuropeEuroleague - Round 11") == "basketballeuropeeuroleague"
+    assert league_key(None) == ""
+
+
+def test_league_prior_used_and_matched_by_suffix():
+    import numpy as np
+    recs = simulate(400, seed=5)
+    ms = [match_from_record(r) for r in recs]
+    df = build_dataset(ms, [5])
+    eb = EmpiricalBayesPace().fit(df)
+    assert set(eb.league_mu_) == {"liga", "ligb", "ligc"}
+    assert eb.league_mu_["liga"] < eb.league_mu_["ligc"]       # 160 vs 176 in the simulator
+    assert eb._league_mu("basketballeuropeligc") == eb.league_mu_["ligc"]
+    assert eb._league_mu("unknown") == eb.mu_
