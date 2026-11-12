@@ -6,7 +6,7 @@
   <title>BasketScrape · Canlı MS Tahmini</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="icon" href="icon.png" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -14,7 +14,7 @@
   <header class="topbar">
     <div class="brand">
       <div class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18M5.6 5.6c2.7 2.7 2.7 10.1 0 12.8M18.4 5.6c-2.7 2.7-2.7 10.1 0 12.8"/></svg>
       </div>
       <div>
         <div class="brand-name">BasketScrape</div>
@@ -28,6 +28,7 @@
       <button type="button" id="stopBtn" class="btn btn-ghost-danger" hidden>Maçı kaldır</button>
     </form>
 
+    <button type="button" class="btn btn-quiet about-btn" id="aboutBtn" aria-haspopup="dialog">Hakkında</button>
     <div class="status-pill" id="statusPill" data-state="idle"><span class="dot"></span><span id="statusText">Bekliyor</span></div>
   </header>
 
@@ -48,7 +49,7 @@
     </section>
 
     <!-- Skor tabelası -->
-    <section class="card scoreboard" id="scoreCard" hidden>
+    <section class="card scoreboard" id="scoreCard" data-view="all" hidden>
       <div class="sb-league" id="sbLeague">—</div>
       <div class="sb-row">
         <div class="sb-team"><div class="sb-name" id="sbHome">Ev sahibi</div><div class="sb-score mono" id="sbHomeScore">0</div></div>
@@ -62,7 +63,19 @@
     </section>
 
     <!-- Tahmin -->
-    <section class="card hero" id="heroCard" hidden>
+    <!-- Görünümler: Tahmin paneli + detaylı analiz bölümleri -->
+    <nav class="card views" id="viewTabs" data-view="all" hidden>
+      <button type="button" data-v="predict" class="on">Tahmin</button>
+      <button type="button" data-v="summary">Maç özeti</button>
+      <button type="button" data-v="flow">Akış</button>
+      <button type="button" data-v="tables">Skor tabloları</button>
+      <button type="button" data-v="team">Takım analizi</button>
+      <button type="button" data-v="stats">İstatistikler</button>
+      <button type="button" data-v="heat">Isı haritası</button>
+      <button type="button" data-v="patterns">Desenler</button>
+    </nav>
+
+    <section class="card hero" id="heroCard" data-view="predict" hidden>
       <div class="hero-head">
         <span class="chip" id="phaseChip">Ön tahmin</span>
         <span class="hero-minute" id="heroMinute"></span>
@@ -89,7 +102,7 @@
     </section>
 
     <!-- Barem kararı -->
-    <section class="card line-card" id="lineCard" hidden>
+    <section class="card line-card" id="lineCard" data-view="predict" hidden>
       <div class="card-title">Barem · Üst / Alt</div>
       <div class="line-input">
         <button type="button" class="btn btn-step" data-step="-1" aria-label="Baremi 1 azalt">−</button>
@@ -118,7 +131,7 @@
     </section>
 
     <!-- Grafik -->
-    <section class="card chart-card" id="chartCard" hidden>
+    <section class="card chart-card" id="chartCard" data-view="predict" hidden>
       <div class="card-title">Tahminin dakika dakika seyri</div>
       <div class="chart-wrap"><canvas id="predChart"></canvas></div>
       <div class="legend">
@@ -130,32 +143,177 @@
     </section>
 
     <!-- Model -->
-    <section class="card model-card" id="modelCard" hidden>
+    <section class="card model-card" id="modelCard" data-view="predict" hidden>
       <div class="card-title">Model</div>
       <div class="model-body" id="modelBody"></div>
     </section>
 
     <!-- Dakika tablosu -->
-    <section class="card grid-card" id="gridCard" hidden>
+    <section class="card grid-card" id="gridCard" data-view="predict" hidden>
       <div class="card-title">Dakika başına toplam sayı</div>
       <div class="minute-grid" id="minuteGrid"></div>
     </section>
 
     <!-- İstatistik -->
-    <section class="card stats-card" id="statsCard" hidden>
+    <section class="card stats-card" id="statsCard" data-view="predict" hidden>
       <div class="card-title">Takım istatistikleri</div>
       <div id="statsBody"></div>
     </section>
 
-    <details class="card log-card">
+    <!-- ── Maç özeti ─────────────────────────────────── -->
+    <section class="card wide" data-view="summary" hidden>
+      <div class="card-title">Maç özeti</div>
+      <div class="kpis" id="sumKpis"></div>
+    </section>
+    <section class="card half" data-view="summary" hidden>
+      <div class="card-title">Çeyrek çeyrek</div>
+      <div class="tbl-wrap"><table class="tbl" id="sumQuarters"></table></div>
+      <div class="note" id="sumQuartersNote"></div>
+    </section>
+    <section class="card half" data-view="summary" hidden>
+      <div class="card-title">Seriler ve sessiz dönemler</div>
+      <div id="sumRuns"></div>
+      <div class="note">Dakika bazında: bir dakikada iki takım da sayı attıysa seri orada kesilir.</div>
+    </section>
+    <section class="card wide" data-view="summary" hidden>
+      <div class="card-title">Fark grafiği · ev sahibi önde (+) / deplasman önde (−)</div>
+      <div class="chart-wrap short"><canvas id="cMarginSum"></canvas></div>
+    </section>
+
+    <!-- ── Akış ──────────────────────────────────────── -->
+    <section class="card wide" data-view="flow" hidden>
+      <div class="card-title">Dakika başına atılan sayı</div>
+      <div class="chart-wrap"><canvas id="cPerMin"></canvas></div>
+    </section>
+    <section class="card wide" data-view="flow" hidden>
+      <div class="card-title">Momentum · son 3 dakikada atılan sayı farkı</div>
+      <div class="chart-wrap short"><canvas id="cMomentum"></canvas></div>
+    </section>
+    <section class="card half" data-view="flow" hidden>
+      <div class="card-title">Skor seyri</div>
+      <div class="chart-wrap"><canvas id="cCum"></canvas></div>
+    </section>
+    <section class="card half" data-view="flow" hidden>
+      <div class="card-title">Fark</div>
+      <div class="chart-wrap"><canvas id="cMargin"></canvas></div>
+    </section>
+    <section class="card half" data-view="flow" hidden>
+      <div class="card-title">Toplam tempo · ×40 ve EG10</div>
+      <div class="chart-wrap"><canvas id="cPace"></canvas></div>
+    </section>
+    <section class="card half" data-view="flow" hidden>
+      <div class="card-title">Son 5 dakikanın temposu (×8 → maça yayılmış)</div>
+      <div class="chart-wrap"><canvas id="cRolling"></canvas></div>
+    </section>
+
+    <!-- ── Skor tabloları ────────────────────────────── -->
+    <section class="card wide" data-view="tables" hidden>
+      <div class="tables-head">
+        <div class="card-title">Skor tabloları</div>
+        <div class="seg seg-inline" id="tableMode">
+          <button type="button" data-mode="raw" class="on">Gerçek skor</button>
+          <button type="button" data-mode="x40">×40</button>
+          <button type="button" data-mode="eg10">EG10</button>
+          <button type="button" data-mode="cum">Kümülatif</button>
+        </div>
+      </div>
+      <div class="note" id="tableModeNote"></div>
+      <div class="tri" id="scoreTables"></div>
+    </section>
+
+    <!-- ── Takım analizi ─────────────────────────────── -->
+    <section class="card wide" data-view="team" hidden>
+      <div class="card-title">Takım karşılaştırması</div>
+      <div id="teamCompare"></div>
+      <div class="note" id="teamNote"></div>
+    </section>
+    <section class="card half" data-view="team" hidden>
+      <div class="card-title">Four Factors (Dean Oliver)</div>
+      <div class="chart-wrap"><canvas id="cRadar"></canvas></div>
+    </section>
+    <section class="card half" data-view="team" hidden>
+      <div class="card-title">Verimlilik · 100 hücum başına</div>
+      <div class="chart-wrap"><canvas id="cRatings"></canvas></div>
+    </section>
+    <section class="card half" data-view="team" hidden>
+      <div class="card-title">Şut dağılımı</div>
+      <div class="chart-wrap"><canvas id="cShots"></canvas></div>
+    </section>
+    <section class="card half" data-view="team" hidden>
+      <div class="card-title">Sayı kaynakları</div>
+      <div class="chart-wrap"><canvas id="cSources"></canvas></div>
+    </section>
+
+    <!-- ── İstatistikler ─────────────────────────────── -->
+    <section class="card wide" data-view="stats" hidden>
+      <div class="card-title">Flashscore istatistikleri</div>
+      <div id="fullStats"></div>
+    </section>
+
+    <!-- ── Isı haritası ──────────────────────────────── -->
+    <section class="card wide" data-view="heat" hidden>
+      <div class="card-title">Isı haritası · dakika başına sayı</div>
+      <div class="heat" id="heatMaps"></div>
+    </section>
+
+    <!-- ── Desenler ──────────────────────────────────── -->
+    <section class="card half" data-view="patterns" hidden>
+      <div class="card-title">Çeyrek dağılımı</div>
+      <div id="qBars"></div>
+    </section>
+    <section class="card half" data-view="patterns" hidden>
+      <div class="card-title">Desen kuralları · bu maç ve 2873 maçlık gerçek oran</div>
+      <div id="patternRules"></div>
+    </section>
+
+    <details class="card log-card" data-view="all">
       <summary>Bağlantı günlüğü</summary>
       <pre id="log"></pre>
     </details>
   </main>
 
+  <!-- Hakkında -->
+  <dialog class="about" id="aboutDlg" aria-labelledby="aboutTitle">
+    <div class="about-head">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18M5.6 5.6c2.7 2.7 2.7 10.1 0 12.8M18.4 5.6c-2.7 2.7-2.7 10.1 0 12.8"/></svg>
+      </div>
+      <div>
+        <h2 id="aboutTitle">BasketScrape</h2>
+        <div class="about-sub" id="aboutVersion">Canlı basketbol analizi ve maç sonu toplam tahmini</div>
+      </div>
+      <button type="button" class="about-x" id="aboutClose" aria-label="Kapat">×</button>
+    </div>
+    <div class="about-body">
+      <section>
+        <h3>Ne yapar?</h3>
+        <p>Flashscore'daki canlı basketbol maçlarını dakika dakika izler. Birden çok maçı aynı anda takip eder, her dakika sonunda <b>maç sonu toplam sayıyı</b> tahmin eder ve girdiğiniz bareme göre <b>Üst/Alt olasılığını</b> hesaplar. Maç özeti, akış grafikleri, skor tabloları, takım analizi, istatistikler, ısı haritası ve desen kuralları da her maç için ayrı ayrı gösterilir.</p>
+      </section>
+      <section>
+        <h3>Nasıl kullanılır?</h3>
+        <ol>
+          <li>Flashscore'da maçı açın, adresini kopyalayın, üstteki kutuya yapıştırıp <b>+ Maç ekle</b>'ye basın.</li>
+          <li>Her maç üstte kendi sekmesinde açılır. Maç başlamadıysa program bekler.</li>
+          <li><b>Tahmin</b> bölümünde baremi yazın. Tahmin 21–30. dakikalar arasında kilitlenir; güven seçilen eşiği geçince karar yeşile döner.</li>
+          <li>Diğer bölümler (<b>Maç özeti, Akış, Skor tabloları…</b>) aynı maçın detaylarını gösterir.</li>
+        </ol>
+      </section>
+      <section>
+        <h3>Tahmin modeli</h3>
+        <div class="about-grid" id="aboutModel"></div>
+        <p class="about-note">Model yalnızca EuroLeague ve EuroCup maçlarında doğrulandı; diğer liglerde skor ve analizler çalışır, tahmin gösterilmez. Tahminler olasılıktır, kesinlik değildir.</p>
+      </section>
+      <section>
+        <h3>Kurulum ve veri</h3>
+        <div class="about-grid" id="aboutInstall"></div>
+      </section>
+    </div>
+  </dialog>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/lib/predictor.js"></script>
+  <script src="analysis-views.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

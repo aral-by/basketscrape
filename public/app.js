@@ -5,6 +5,11 @@
   const socket = io();
   const $ = (id) => document.getElementById(id);
   const { probOver } = window.BasketPredictor;
+  if (window.Chart) {
+    Chart.defaults.font.family = "'Inter', -apple-system, 'Segoe UI', sans-serif";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = '#a3a8b3';
+  }
 
   const ui = {
     form: $('urlForm'), url: $('urlInput'), start: $('startBtn'), stop: $('stopBtn'),
@@ -48,11 +53,37 @@
     ui.pillText.textContent = text;
   }
 
+  // ── görünümler: Tahmin + detaylı analiz bölümleri ────────────────────────
+  const VIEWS = ['predict', 'summary', 'flow', 'tables', 'team', 'stats', 'heat', 'patterns'];
+  let view = VIEWS.includes(store.get('view', 'predict')) ? store.get('view', 'predict') : 'predict';
+  let matchShown = false;
+
   function showMatch(on) {
+    matchShown = on;
     ui.intro.hidden = on;
-    ui.cards.forEach((c) => { c.hidden = !on; });
-    if (!on) $('statsCard').hidden = true;
+    document.querySelectorAll('[data-view]').forEach((c) => {
+      const v = c.dataset.view;
+      c.hidden = !on || (v !== 'all' && v !== view);
+    });
+    $('viewTabs').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === view));
+    if (on && view === 'predict') renderStats();
   }
+
+  function renderView() {
+    if (!matchShown || view === 'predict' || !score) return;
+    window.BasketAnalysis.render(view, score);
+  }
+
+  $('viewTabs').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-v]');
+    if (!b) return;
+    view = b.dataset.v;
+    store.set('view', view);
+    showMatch(!!matches.get(selected));
+    if (view === 'predict') { renderChart(); if (chart) chart.resize(); }
+    renderView();
+  });
+  window.BasketAnalysis.bindTableMode(renderView);
 
   function logLine({ at, msg }) {
     return `${new Date(at || Date.now()).toLocaleTimeString('tr-TR')}  ${msg}\n`;
@@ -173,6 +204,7 @@
     renderChart();
     renderModel();
     renderLog();
+    renderView();
   }
 
   function refreshSelected(id) {
@@ -226,6 +258,7 @@
       renderGrid();
       renderStats();
       renderTabs();
+      renderView();
     }
   });
 
@@ -636,7 +669,7 @@
     const sections = score && score.stats;
     const rows = [];
     (sections || []).forEach((sec) => (sec.rows || []).forEach((r) => rows.push(r)));
-    card.hidden = !rows.length;
+    card.hidden = !rows.length || view !== 'predict' || !matchShown;
     $('gridCard').classList.toggle('wide', !rows.length);
     if (!rows.length) return;
     const body = $('statsBody');
@@ -647,6 +680,43 @@
       body.append(d);
     }
   }
+
+  // ── Hakkında ────────────────────────────────────────────────────────────
+  const aboutDlg = $('aboutDlg');
+  function fact(box, k, v) {
+    const d = el('div', 'about-fact');
+    d.append(el('div', 'k', k), el('div', 'v', v));
+    box.append(d);
+  }
+  async function openAbout() {
+    try {
+      const a = await (await fetch('/api/about')).json();
+      $('aboutVersion').textContent = `Sürüm ${a.version || '—'}${a.commit ? ' · ' + a.commit : ''} · Node.js ${a.node}`;
+      const m = a.model || {};
+      const v28 = (m.validation || {})[28] || (m.validation || {})['28'] || {};
+      const mb = $('aboutModel'); mb.replaceChildren();
+      if (m.available) {
+        fact(mb, 'Yöntem', 'Empirical Bayes tempo modeli + uzatma karışımı');
+        fact(mb, 'Eğitim verisi', `${m.nMatches} maç (EuroLeague, EuroCup 2021–2026)`);
+        fact(mb, '28. dk ortalama hata', `±${fmt(v28.MAE, 1)} sayı`);
+        fact(mb, '%80 aralık isabeti', pct(v28.cov80));
+        fact(mb, 'Kilit kuralı', `${m.lockRule.from}–${m.lockRule.to}. dk, belirsizlik ±${fmt(Z80 * m.lockRule.sd_target, 1)} altına inince`);
+        fact(mb, 'Son eğitim', (m.trainedUntil || '').slice(0, 10) || '—');
+      } else {
+        fact(mb, 'Model', 'yüklenemedi — tahminler kapalı');
+      }
+      const ib = $('aboutInstall'); ib.replaceChildren();
+      fact(ib, 'Güncelleme', 'Masaüstü simgesiyle her açılışta GitHub\'dan otomatik');
+      fact(ib, 'Aynı anda maç', `en fazla ${a.maxMatches}`);
+      fact(ib, 'Kaydedilen maç', a.recording ? `${a.recorded} maç bu bilgisayarda` : 'kayıt kapalı');
+      fact(ib, 'Veri klasörü', a.dataDir);
+      fact(ib, 'Kaynak kod', a.repo.replace('https://', ''));
+    } catch { /* çevrimdışı: statik metin yeterli */ }
+    if (typeof aboutDlg.showModal === 'function') aboutDlg.showModal(); else aboutDlg.setAttribute('open', '');
+  }
+  $('aboutBtn').addEventListener('click', openAbout);
+  $('aboutClose').addEventListener('click', () => aboutDlg.close());
+  aboutDlg.addEventListener('click', (e) => { if (e.target === aboutDlg) aboutDlg.close(); });
 
   // ── açılış ──────────────────────────────────────────────────────────────
   fetch('/api/model').then((r) => r.json()).then((m) => {
