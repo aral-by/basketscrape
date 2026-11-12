@@ -461,8 +461,10 @@
     }
   }
 
-  function renderTeam(s) {
-    const tm = teamMetrics(s.stats, s.homeScore, s.awayScore);
+  function renderTeam(s, extra) {
+    // EuroLeague/EuroCup: resmi kutu skoru varsa onu kullan (Flashscore'dan daha eksiksiz)
+    const official = extra && extra.box && !extra.box.demo ? boxSections(extra.box) : null;
+    const tm = teamMetrics(official || s.stats, s.homeScore, s.awayScore);
     const hn = s.homeName || 'Ev', an = s.awayName || 'Dep';
     const box = $('teamCompare');
     box.replaceChildren();
@@ -496,7 +498,8 @@
     ];
     if (tm.hasFouls) rows.push(['Faul (düşük iyi)', tm.raw.home.pf, tm.raw.away.pf, (x) => fmt(x, 0), null, null, true]);
     for (const [k, hv, av, f, hs, as, lowGood] of rows) box.append(cmpRow(k, hv, av, f, hs, as, lowGood));
-    $('teamNote').textContent = 'Formüller: eFG% = (FGM + 0,5·3PM)/FGA · TS% = PTS / (2·(FGA + 0,44·FTA)) · hücum = FGA − ORB + TOV + 0,44·FTA. Kaynak: Flashscore takım istatistikleri.';
+    $('teamNote').textContent = 'Formüller: eFG% = (FGM + 0,5·3PM)/FGA · TS% = PTS / (2·(FGA + 0,44·FTA)) · hücum = FGA − ORB + TOV + 0,44·FTA. Kaynak: ' +
+      (official ? 'EuroLeague resmi kutu skoru.' : 'Flashscore takım istatistikleri.');
 
     chart('cRadar', {
       type: 'radar',
@@ -672,11 +675,185 @@
       `Gerçek veri: koşul varken %${Math.round(D.cond * 100)}, yokken %${Math.round(D.other * 100)} (genel %${Math.round(D.base * 100)}). Son çeyrek genelde daha yüksek skorlu.`);
   }
 
-  const views = { summary: renderSummary, flow: renderFlow, tables: renderTables, team: renderTeam, stats: renderStats, heat: renderHeat, patterns: renderPatterns };
 
-  function render(view, state) {
+  // ── Oyuncular (resmi EuroLeague / EuroCup verisi) ───────────────────────
+  const sortState = { home: { key: 'pts', dir: -1 }, away: { key: 'pts', dir: -1 } };
+  const BOX_COLS = [
+    ['no', '#'], ['name', 'Oyuncu'], ['min', 'Dk'], ['pts', 'Sayı'], ['fg2', '2S'], ['fg3', '3S'], ['ft', 'SA'],
+    ['oreb', 'HR'], ['dreb', 'SR'], ['reb', 'Rib'], ['ast', 'Ast'], ['stl', 'TÇ'], ['tov', 'TK'], ['blk', 'Blk'],
+    ['pf', 'Faul'], ['fd', 'FA'], ['pm', '+/-'], ['pir', 'PIR'],
+  ];
+  const BOX_TITLES = { min: 'Süre', fg2: 'İki sayılık', fg3: 'Üç sayılık', ft: 'Serbest atış', oreb: 'Hücum ribaundu',
+    dreb: 'Savunma ribaundu', reb: 'Toplam ribaund', ast: 'Asist', stl: 'Top çalma', tov: 'Top kaybı', blk: 'Blok',
+    pf: 'Yaptığı faul', fd: 'Kendisine yapılan faul', pm: 'Sahadayken skor farkı', pir: 'Performans endeksi (PIR)' };
+
+  function boxSortValue(p, key) {
+    if (key === 'fg2') return p.fg2m; if (key === 'fg3') return p.fg3m; if (key === 'ft') return p.ftm;
+    if (key === 'name') return p.name; if (key === 'no') return Number(p.no) || 0;
+    return p[key] == null ? -999 : p[key];
+  }
+
+  function boxTable(tableId, team, side, onSort) {
+    const t = $(tableId);
+    t.replaceChildren();
+    const head = el('tr');
+    for (const [k, label] of BOX_COLS) {
+      const th = el('th', k === 'name' ? 'l' : '', label);
+      th.title = BOX_TITLES[k] || '';
+      if (sortState[side].key === k) th.classList.add('sorted');
+      th.addEventListener('click', () => {
+        const st = sortState[side];
+        st.dir = st.key === k ? -st.dir : (k === 'name' || k === 'no' ? 1 : -1);
+        st.key = k;
+        onSort();
+      });
+      head.append(th);
+    }
+    t.append(head);
+    const { key, dir } = sortState[side];
+    const rows = team.players.slice().sort((a, b) => {
+      const x = boxSortValue(a, key), y = boxSortValue(b, key);
+      return (x > y ? 1 : x < y ? -1 : 0) * dir;
+    });
+    const best = {};
+    for (const k of ['pts', 'reb', 'ast', 'pir']) best[k] = Math.max(...team.players.map((p) => p[k] || 0));
+    for (const p of rows) {
+      const tr = el('tr', p.min === 0 ? 'dnp' : '');
+      const cell = (txt, cls) => tr.append(el('td', 'mono ' + (cls || ''), txt));
+      cell(p.no || '');
+      const name = el('td', 'l pname');
+      if (p.onCourt) name.append(el('span', 'dot-on'));
+      name.append(el('span', '', p.name + (p.starter ? ' *' : '')));
+      tr.append(name);
+      cell(p.min ? p.minText.replace(/^0/, '') : '—', 'dim');
+      cell(p.pts, 'b' + (p.pts && p.pts === best.pts ? ' top' : ''));
+      cell(`${p.fg2m}/${p.fg2a}`, 'dim'); cell(`${p.fg3m}/${p.fg3a}`, 'dim'); cell(`${p.ftm}/${p.fta}`, 'dim');
+      cell(p.oreb); cell(p.dreb); cell(p.reb, p.reb && p.reb === best.reb ? 'top' : '');
+      cell(p.ast, p.ast && p.ast === best.ast ? 'top' : ''); cell(p.stl); cell(p.tov); cell(p.blk);
+      cell(p.pf, p.pf >= 5 ? 'pf5' : p.pf === 4 ? 'pf4' : ''); cell(p.fd);
+      cell(p.pm == null ? '—' : (p.pm > 0 ? '+' : '') + p.pm, p.pm > 0 ? 'pos' : p.pm < 0 ? 'neg' : '');
+      cell(p.pir, p.pir && p.pir === best.pir ? 'top' : '');
+      t.append(tr);
+    }
+    if (team.totals) {
+      const T = team.totals, tr = el('tr', 'sum');
+      const cell = (txt, cls) => tr.append(el('td', 'mono ' + (cls || ''), txt));
+      cell(''); tr.append(el('td', 'l', 'Takım'));
+      cell(''); cell(T.pts, 'b'); cell(`${T.fg2m}/${T.fg2a}`); cell(`${T.fg3m}/${T.fg3a}`); cell(`${T.ftm}/${T.fta}`);
+      cell(T.oreb); cell(T.dreb); cell(T.reb + (team.teamReb || 0)); cell(T.ast); cell(T.stl); cell(T.tov); cell(T.blk);
+      cell(T.pf); cell(T.fd); cell(''); cell(T.pir);
+      t.append(tr);
+    }
+  }
+
+  function renderPlayers(s, extra) {
+    const box = extra && extra.box;
+    const cards = document.querySelectorAll('[data-view="players"]');
+    const empty = $('playersEmpty');
+    if (!box) {
+      cards.forEach((c) => { if (c !== empty) c.hidden = true; });
+      empty.hidden = false;
+      $('playersEmptyText').textContent = (extra && extra.supported === false)
+        ? 'Oyuncu istatistikleri resmi EuroLeague/EuroCup verisinden gelir; bu lig için yok.'
+        : 'Resmi EuroLeague/EuroCup verisi bekleniyor… Maç eşleşince oyuncu istatistikleri burada görünür (20 saniyede bir yenilenir).';
+      return;
+    }
+    cards.forEach((c) => { c.hidden = false; });
+    if (!box.demo) empty.hidden = true;
+    else $('playersEmptyText').textContent = 'DEMO: oyuncu tablosu maçın resmi son kutu skorudur; takım faulleri ve olaylar maçın o anki dakikasına kadar gösterilir.';
+
+    const teams = [['home', box.home], ['away', box.away]];
+    // takım faulleri
+    const tf = $('teamFouls');
+    tf.replaceChildren();
+    for (const [side, t] of teams) {
+      const row = el('div', 'tf');
+      const top = el('div', 'tf-top');
+      top.append(el('div', 'tf-name ' + side, t.name));
+      const b = el('span', 'rule-badge', t.fouls.bonus ? 'BONUS' : `${Math.max(0, 4 - t.fouls.current)} faul daha → bonus`);
+      b.dataset.kind = t.fouls.bonus ? 'bad' : 'off';
+      top.append(b);
+      const dots = el('div', 'tf-dots');
+      for (let i = 1; i <= 5; i++) dots.append(el('span', 'tf-dot' + (i <= t.fouls.current ? ' on' : '') + (i === 5 && t.fouls.current >= 5 ? ' over' : '')));
+      dots.append(el('span', 'mono tf-n', String(t.fouls.current)));
+      const per = el('div', 'tf-per');
+      t.fouls.byPeriod.forEach((n, i) => per.append(el('span', i === box.period - 1 ? 'cur' : '', `${i < 4 ? 'Ç' + (i + 1) : 'U' + (i - 3)}: ${n}`)));
+      row.append(top, dots, per);
+      tf.append(row);
+    }
+    tf.append(el('div', 'note', 'FIBA: bir periyotta 4 takım faulünden sonraki her faulde rakip serbest atış kullanır. Uzatmalar 4. çeyreğin sayımıyla devam eder.'));
+
+    // öne çıkanlar
+    const lead = $('leaders');
+    lead.replaceChildren();
+    for (const [k, label] of [['pts', 'Sayı'], ['reb', 'Ribaund'], ['ast', 'Asist'], ['pir', 'PIR']]) {
+      const col = el('div', 'lead');
+      col.append(el('div', 'k', label));
+      for (const [side, t] of teams) {
+        const p = t.players.slice().sort((a, b) => (b[k] || 0) - (a[k] || 0))[0];
+        const r = el('div', 'lead-row ' + side);
+        r.append(el('span', 'lead-name', p ? p.name : '—'), el('span', 'mono lead-v', p ? String(p[k]) : '—'));
+        col.append(r);
+      }
+      lead.append(col);
+    }
+
+    $('boxTitleHome').textContent = `${box.home.name} · ${box.home.coach || ''}`;
+    $('boxTitleAway').textContent = `${box.away.name} · ${box.away.coach || ''}`;
+    const redraw = () => { boxTable('boxHome', box.home, 'home', redraw); boxTable('boxAway', box.away, 'away', redraw); };
+    redraw();
+
+    // faul sıkıntısı: 4+ faul, ya da ilk yarıda 3 faul
+    const ft = $('foulTrouble');
+    ft.replaceChildren();
+    const half1 = (box.period || 0) <= 2;
+    const trouble = [];
+    for (const [side, t] of teams) for (const p of t.players) {
+      if (p.pf >= 4 || (half1 && p.pf >= 3)) trouble.push({ side, p });
+    }
+    trouble.sort((a, b) => b.p.pf - a.p.pf || b.p.pts - a.p.pts);
+    if (!trouble.length) ft.append(el('div', 'note', 'Faul sıkıntısında oyuncu yok (4+ faul, ya da ilk yarıda 3 faul).'));
+    for (const { side, p } of trouble) {
+      const r = el('div', 'kv');
+      const left = el('div', '');
+      left.append(el('div', 'k ' + side, p.name + (p.onCourt ? ' · sahada' : '')), el('div', 's', `${p.pts} sayı · ${p.minText} dk`));
+      r.append(left, el('div', 'v mono ' + (p.pf >= 5 ? 'pf5' : 'pf4'), p.pf >= 5 ? 'oyundan çıktı (5)' : `${p.pf} faul`));
+      ft.append(r);
+    }
+
+    // son olaylar
+    const feed = $('feed');
+    feed.replaceChildren();
+    for (const e of box.events) {
+      const r = el('div', 'ev ' + (e.side || '') + (e.scoring ? ' score' : '') + (/Faul|faul/.test(e.text) && e.type !== 'RV' ? ' foul' : ''));
+      r.append(el('span', 'mono ev-t', e.minute ? `${minLabel(e.minute)} ${e.clock}` : e.clock));
+      const txt = el('span', 'ev-x');
+      txt.append(el('b', '', e.text), document.createTextNode(e.player ? ' · ' + e.player : ''));
+      r.append(txt, el('span', 'mono ev-s', e.score || ''));
+      feed.append(r);
+    }
+  }
+
+  /** Official box totals → Flashscore-like stat sections (used by Takım analizi when available). */
+  function boxSections(box) {
+    const r = (name, h, a) => ({ name, home: String(h), away: String(a) });
+    const H = box.home.totals, A = box.away.totals;
+    if (!H || !A) return null;
+    return [{ title: 'EuroLeague resmi kutu skoru', rows: [
+      r('Alan Golü', `${H.fg2m + H.fg3m}/${H.fg2a + H.fg3a}`, `${A.fg2m + A.fg3m}/${A.fg2a + A.fg3a}`),
+      r('İki Sayılık', `${H.fg2m}/${H.fg2a}`, `${A.fg2m}/${A.fg2a}`), r('Üç Sayılık', `${H.fg3m}/${H.fg3a}`, `${A.fg3m}/${A.fg3a}`),
+      r('Serbest Atış', `${H.ftm}/${H.fta}`, `${A.ftm}/${A.fta}`), r('Hücum Ribaundu', H.oreb, A.oreb),
+      r('Savunma Ribaundu', H.dreb, A.dreb), r('Toplam Ribaund', H.reb + (box.home.teamReb || 0), A.reb + (box.away.teamReb || 0)),
+      r('Asist', H.ast, A.ast), r('Top Kaybı', H.tov, A.tov), r('Top Çalma', H.stl, A.stl), r('Blok', H.blk, A.blk),
+      r('Fauller', H.pf, A.pf),
+    ] }];
+  }
+
+  const views = { players: renderPlayers, summary: renderSummary, flow: renderFlow, tables: renderTables, team: renderTeam, stats: renderStats, heat: renderHeat, patterns: renderPatterns };
+
+  function render(view, state, extra) {
     if (!state || !views[view]) return;
-    try { views[view](state); } catch (e) { console.error('analysis view', view, e); }
+    try { views[view](state, extra || {}); } catch (e) { console.error('analysis view', view, e); }
   }
 
   function bindTableMode(onChange) {
@@ -691,5 +868,5 @@
     });
   }
 
-  return { calc, render, bindTableMode, views: Object.keys(views) };
+  return { calc, render, bindTableMode, boxSections, views: Object.keys(views) };
 });

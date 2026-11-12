@@ -83,7 +83,9 @@ function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
     const away = game.cumulative.away[m - 1];
     board.update(period, minute, home, away);
     onUpdate({ ...board.getState(), homeName, awayName, league, period, periodText: '', minute,
-      homeScore: home, awayScore: away, stats: demoStats(home, away, m, game.id.length * 7 + 11) });
+      homeScore: home, awayScore: away, stats: demoStats(home, away, m, game.id.length * 7 + 11),
+      // resmi EuroLeague verisi (oyuncular, faul, olaylar) bu dakikaya kadar gösterilir
+      officialGame: { season: game.id.split('-')[0], gameCode: Number(game.id.split('-')[1]), swapped: false } });
     timer = setTimeout(tick, speed);
   };
   timer = setTimeout(tick, 300);

@@ -133,6 +133,7 @@ Other leagues are still tracked and recorded, but the panel shows no prediction:
 | `SESSIONS_FILE` | `data/sessions.json` | Open matches, resumed after a restart |
 | `OPEN_BROWSER` | *(off)* | `1` opens the panel in an app window on start (set by the launcher) |
 | `BASKETSCRAPE_BRANCH` | `main` | Branch the installer and updater download |
+| `OFFICIAL_DATA` | `1` | `0` turns off the official EuroLeague/EuroCup player data |
 
 Only Flashscore URLs are accepted (`flashscore.com`, `flashscore.com.tr`, `flashscore.co.uk`, …). Any other address, including `file://` and internal hosts, is rejected with `400`.
 
@@ -171,12 +172,13 @@ The numbers and formulas are documented in [`docs/formula.md`](docs/formula.md).
 
 ## Analysis views
 
-Below the scoreboard, each match has eight views. **Tahmin** is the prediction panel above; the other seven bring back everything from the old analysis page in the new design, with more detail.
+Below the scoreboard, each match has nine views. **Tahmin** is the prediction panel above; the other seven bring back everything from the old analysis page in the new design, with more detail.
 
 | View | Content |
 |---|---|
 | **Tahmin** | Full-time total forecast, 80 % interval, overtime probability, lock, over/under verdict, forecast chart, minute grid, model card |
 | **Maç özeti** | Largest lead per team, lead changes, ties, best minute, pace vs the EuroLeague/EuroCup average, quarter and half table, longest runs and scoreless spells, margin chart |
+| **Oyuncular** | EuroLeague/EuroCup only, from the official live API (refreshed every 20 s): sortable box score per player (minutes, points, 2P/3P/FT, rebounds, assists, steals, turnovers, blocks, fouls committed and drawn, +/-, PIR, on court, starters), team fouls per period with **bonus**, leaders, foul trouble, latest plays. Team fouls also appear on the scoreboard |
 | **Akış** | Points per minute, momentum (last 3 minutes), score progression, margin, ×40 and EG10 pace, 5-minute rolling pace vs the league average |
 | **Skor tabloları** | Home, total and away grids in four modes: points, ×40, EG10, cumulative |
 | **Takım analizi** | 20+ comparisons (FG%, 2P%, 3P%, FT%, eFG%, TS%, turnover rate, ORB%, FTA/FGA, 3PA share, AST/TO, possessions, ratings, rebounds, steals, blocks, fouls), Four Factors radar, ratings, shot chart, point sources |
@@ -200,12 +202,16 @@ Below the scoreboard, each match has eight views. **Tahmin** is the prediction p
 <td><img src="docs/images/panel-patterns.png" alt="Patterns"><br><sub><b>Desenler</b></sub></td>
 </tr>
 <tr>
+<td><img src="docs/images/panel-players.png" alt="Players"><br><sub><b>Oyuncular</b> (official EuroLeague data)</sub></td>
 <td><img src="docs/images/about.png" alt="About"><br><sub><b>Hakkında</b></sub></td>
+</tr>
+<tr>
 <td><img src="docs/images/mobile.png" alt="Mobile" width="240"><br><sub><b>Mobile</b></sub></td>
+<td></td>
 </tr>
 </table>
 
-Screenshots come from demo mode (`DEMO_GAME=E2025-013`): a real 2025-26 EuroLeague game replayed minute by minute. Team statistics in demo mode are generated and labelled "DEMO"; live matches show Flashscore's statistics. Formulas: [`docs/analysis-metrics.md`](docs/analysis-metrics.md).
+Screenshots come from demo mode (`DEMO_GAME=E2025-013`): a real 2025-26 EuroLeague game replayed minute by minute. Team statistics in demo mode are generated and labelled "DEMO"; live matches show Flashscore's statistics. In demo mode the player table is the official final box score, while team fouls and plays follow the replayed minute. Formulas: [`docs/analysis-metrics.md`](docs/analysis-metrics.md).
 
 ---
 
@@ -242,7 +248,7 @@ The full design, the mathematics and the sample-size analysis are in [`docs/ml-d
 ## Testing
 
 ```bash
-npm test                                   # Node: 63 tests
+npm test                                   # Node: 70 tests
 cd ml && ../.venv/bin/python -m pytest     # Python: 35 tests
 ```
 
@@ -253,6 +259,7 @@ cd ml && ../.venv/bin/python -m pytest     # Python: 35 tests
 | `test/scraper.test.js` | Watcher lifecycle against a fake Puppeteer: stop before tip-off, finish, crash recovery; several matches sharing one browser |
 | `test/matchManager.test.js` | Several matches at once: duplicates, limit, per-match events, removal, finished matches, resume after restart |
 | `test/analysis.test.js` | Analysis views: cumulative scores after a mid-match join, EG10 rounding, lead changes, runs, droughts, statistic matching, Four Factors |
+| `test/euroleagueLive.test.js` | Official data: game matching by date and names (incl. swapped home/away), box score, team fouls per period, bonus, overtime carry-over, polling and stop |
 | `test/update.test.js` | GitHub tarball parsing (pax long names, unsafe paths), updates that keep `data/` and remove deleted files |
 | `test/recorder.test.js` | Recording format, mid-match starts, overtime, merging restarted sessions |
 | `test/predictor.test.js` | Parity with the Python model, team/league matching, completed-minute inputs, lock rule, league gate |
@@ -280,6 +287,7 @@ basketscrape/
 │   ├── matchManager.js  several matches at once, resume after restart
 │   ├── browserPool.js   one shared Chromium, one tab per match
 │   ├── openApp.js       opens the panel as an app window
+│   ├── euroleagueLive.js official EuroLeague/EuroCup player data
 │   ├── scraper.js       watcher lifecycle (Puppeteer)
 │   ├── parse.js         text parsers + URL allow-list
 │   ├── gameState.js     per-minute score engine
