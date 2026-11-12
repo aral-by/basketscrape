@@ -3,256 +3,155 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BasketScrape</title>
+  <title>BasketScrape · Canlı MS Tahmini</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:           #09090b;
-      --card:         #18181b;
-      --border:       #27272a;
-      --border-light: #3f3f46;
-      --text:         #fafafa;
-      --muted:        #a1a1aa;
-      --dim:          #71717a;
-      --primary:      #818cf8;
-      --primary-bg:   rgba(129,140,248,0.12);
-      --primary-bdr:  rgba(129,140,248,0.35);
-      --live:         #22c55e;
-      --live-bg:      rgba(34,197,94,0.12);
-      --danger:       #f87171;
-      --danger-bg:    rgba(248,113,113,0.12);
-      --warn:         #fbbf24;
-      --warn-bg:      rgba(251,191,36,0.12);
-      --radius:       8px;
-    }
-
-    body {
-      font-family: 'Inter', -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 40px;
-    }
-
-    .brand-icon {
-      width: 36px; height: 36px;
-      background: var(--primary);
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-    }
-
-    .brand-name {
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 32px;
-      width: 100%;
-      max-width: 420px;
-    }
-
-    .card-heading {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-
-    .card-sub {
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 24px;
-    }
-
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--muted);
-      margin-bottom: 6px;
-      letter-spacing: 0.3px;
-    }
-
-    input[type="text"] {
-      width: 100%;
-      padding: 9px 12px;
-      background: var(--bg);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius);
-      color: var(--text);
-      font-size: 13px;
-      font-family: inherit;
-      outline: none;
-      transition: border-color 0.15s;
-      margin-bottom: 12px;
-    }
-
-    input[type="text"]:focus { border-color: var(--primary); }
-    input[type="text"]::placeholder { color: var(--dim); }
-
-    button {
-      width: 100%;
-      padding: 9px 16px;
-      background: var(--primary);
-      border: none;
-      border-radius: var(--radius);
-      color: #fff;
-      font-size: 13px;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      transition: opacity 0.15s;
-      letter-spacing: 0.2px;
-    }
-
-    button:hover:not(:disabled) { opacity: 0.88; }
-
-    button:disabled {
-      background: var(--border-light);
-      color: var(--dim);
-      cursor: not-allowed;
-      opacity: 1;
-    }
-
-    .status-box {
-      margin-top: 14px;
-      padding: 10px 14px;
-      border-radius: var(--radius);
-      font-size: 12px;
-      font-weight: 500;
-      display: none;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .status-box::before {
-      content: '';
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .status-box.not_started {
-      display: flex;
-      background: var(--warn-bg);
-      border: 1px solid rgba(251,191,36,0.3);
-      color: var(--warn);
-    }
-    .status-box.not_started::before { background: var(--warn); }
-
-    .status-box.running {
-      display: flex;
-      background: var(--live-bg);
-      border: 1px solid rgba(34,197,94,0.3);
-      color: var(--live);
-    }
-    .status-box.running::before { background: var(--live); animation: pulse 2s infinite; }
-
-    .status-box.finished,
-    .status-box.error {
-      display: flex;
-      background: var(--danger-bg);
-      border: 1px solid rgba(248,113,113,0.3);
-      color: var(--danger);
-    }
-    .status-box.finished::before,
-    .status-box.error::before { background: var(--danger); }
-
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-    .analysis-link {
-      display: none;
-      margin-top: 12px;
-      width: 100%;
-      padding: 9px 16px;
-      background: transparent;
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius);
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 500;
-      font-family: inherit;
-      text-decoration: none;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .analysis-link:hover { border-color: var(--primary); color: var(--primary); }
-
-    .stop-btn {
-      display: none;
-      margin-top: 8px;
-      width: 100%;
-      padding: 9px 16px;
-      background: transparent;
-      border: 1px solid rgba(248,113,113,0.4);
-      border-radius: var(--radius);
-      color: var(--danger);
-      font-size: 13px;
-      font-weight: 500;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .stop-btn:hover { background: var(--danger-bg); border-color: var(--danger); }
-
-    .divider {
-      height: 1px;
-      background: var(--border);
-      margin: 20px 0;
-    }
-
-    .hint {
-      font-size: 11px;
-      color: var(--dim);
-      line-height: 1.6;
-    }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="brand">
-    <div class="brand-icon">🏀</div>
-    <span class="brand-name">BasketScrape</span>
-  </div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">BasketScrape</div>
+        <div class="brand-sub">Canlı MS toplam tahmini</div>
+      </div>
+    </div>
 
-  <div class="card">
-    <div class="card-heading">Maç Takibi Başlat</div>
-    <div class="card-sub">Flashscore maç URL'sini girerek canlı veri çekmeye başla.</div>
+    <form class="url-form" id="urlForm" autocomplete="off">
+      <input type="url" id="urlInput" placeholder="Flashscore maç adresi (EuroLeague / EuroCup)" aria-label="Flashscore maç adresi" />
+      <button type="submit" id="startBtn" class="btn btn-primary">Başlat</button>
+      <button type="button" id="stopBtn" class="btn btn-ghost-danger" hidden>Durdur</button>
+    </form>
 
-    <label for="urlInput">Maç URL'si</label>
-    <input type="text" id="urlInput" placeholder="https://www.flashscore.com/mac/..." />
-    <button id="startBtn">Başlat</button>
+    <div class="status-pill" id="statusPill" data-state="idle"><span class="dot"></span><span id="statusText">Bekliyor</span></div>
+  </header>
 
-    <div class="status-box" id="statusBox"></div>
-    <a href="/analysis.html" id="analysisLink" class="analysis-link">Analiz Paneline Git →</a>
-    <button id="stopBtn" class="stop-btn">Maçtan Çık</button>
+  <main class="layout">
+    <!-- Boş durum -->
+    <section class="card intro" id="introCard">
+      <h1>Maç sonu toplamını canlı tahmin eder</h1>
+      <p>Flashscore'dan bir <b>EuroLeague</b> veya <b>EuroCup</b> maçının adresini yapıştırıp başlatın. Model her dakika sonunda maç sonu toplamını, %80 güven aralığını ve uzatma ihtimalini günceller; tahmini 21–30. dakikalar arasında, belirsizlik yeterince düştüğü an kilitler.</p>
+      <ol class="steps">
+        <li><span>1</span>Maç adresini girin — maç başlamadıysa sistem bekler.</li>
+        <li><span>2</span>Baremi yazın — Üst/Alt olasılığı anında hesaplanır.</li>
+        <li><span>3</span>Kilitli tahmin ve güven %80'i geçince karar kartı yeşile döner.</li>
+      </ol>
+      <div class="model-facts" id="modelFacts"></div>
+    </section>
 
-    <div class="divider"></div>
-    <p class="hint">Maç başlamadan önce URL girip başlatabilirsin — sistem maç saatini bekler ve otomatik olarak takibe geçer.</p>
-  </div>
+    <!-- Skor tabelası -->
+    <section class="card scoreboard" id="scoreCard" hidden>
+      <div class="sb-league" id="sbLeague">—</div>
+      <div class="sb-row">
+        <div class="sb-team"><div class="sb-name" id="sbHome">Ev sahibi</div><div class="sb-score mono" id="sbHomeScore">0</div></div>
+        <div class="sb-mid">
+          <div class="sb-clock mono" id="sbClock">—</div>
+          <div class="sb-period" id="sbPeriod">—</div>
+        </div>
+        <div class="sb-team right"><div class="sb-name" id="sbAway">Deplasman</div><div class="sb-score mono" id="sbAwayScore">0</div></div>
+      </div>
+      <div class="sb-quarters" id="sbQuarters"></div>
+    </section>
 
+    <!-- Tahmin -->
+    <section class="card hero" id="heroCard" hidden>
+      <div class="hero-head">
+        <span class="chip" id="phaseChip">Ön tahmin</span>
+        <span class="hero-minute" id="heroMinute"></span>
+      </div>
+      <div class="hero-main">
+        <div class="hero-label" id="heroLabel">MS toplam tahmini</div>
+        <div class="hero-value mono" id="heroValue">—</div>
+        <div class="hero-range" id="heroRange">%80 aralık —</div>
+      </div>
+      <div class="hero-band" aria-hidden="true">
+        <div class="band-track"><div class="band-fill" id="bandFill"></div><div class="band-mark" id="bandMark"></div><div class="band-line" id="bandLine" hidden></div></div>
+        <div class="band-scale"><span id="bandLo">—</span><span id="bandHi">—</span></div>
+      </div>
+      <div class="hero-stats">
+        <div><div class="k">Belirsizlik</div><div class="v mono" id="statSd">—</div></div>
+        <div><div class="k">Uzatma ihtimali</div><div class="v mono" id="statOt">—</div></div>
+        <div><div class="k">Canlı tahmin</div><div class="v mono" id="statLive">—</div></div>
+      </div>
+      <div class="lock-progress" id="lockProgress">
+        <div class="lp-text" id="lpText">Kilit penceresi 21–30. dakika</div>
+        <div class="lp-track"><div class="lp-fill" id="lpFill"></div></div>
+      </div>
+      <div class="hero-note" id="heroNote" hidden></div>
+    </section>
+
+    <!-- Barem kararı -->
+    <section class="card line-card" id="lineCard" hidden>
+      <div class="card-title">Barem · Üst / Alt</div>
+      <div class="line-input">
+        <button type="button" class="btn btn-step" data-step="-1" aria-label="Baremi 1 azalt">−</button>
+        <input type="number" id="lineInput" step="0.5" min="60" max="300" placeholder="örn. 165.5" inputmode="decimal" />
+        <button type="button" class="btn btn-step" data-step="1" aria-label="Baremi 1 artır">+</button>
+      </div>
+      <div class="seg" role="tablist" id="basisSeg">
+        <button type="button" data-basis="lock" class="on">Kilitli tahmin</button>
+        <button type="button" data-basis="live">Canlı tahmin</button>
+      </div>
+      <div class="ou">
+        <div class="ou-side"><div class="ou-k">ÜST</div><div class="ou-v mono" id="pOver">—</div></div>
+        <div class="ou-bar"><div class="ou-over" id="ouOver"></div></div>
+        <div class="ou-side right"><div class="ou-k">ALT</div><div class="ou-v mono" id="pUnder">—</div></div>
+      </div>
+      <div class="verdict" id="verdict" data-kind="none">
+        <div class="verdict-main" id="verdictMain">Barem girin</div>
+        <div class="verdict-sub" id="verdictSub">Olasılık, uzatma ihtimalini de içeren kalibre edilmiş modelden gelir.</div>
+      </div>
+      <label class="threshold">Karar eşiği
+        <select id="thresholdSel">
+          <option value="0.7">%70</option><option value="0.75">%75</option>
+          <option value="0.8" selected>%80</option><option value="0.85">%85</option>
+        </select>
+      </label>
+    </section>
+
+    <!-- Grafik -->
+    <section class="card chart-card" id="chartCard" hidden>
+      <div class="card-title">Tahminin dakika dakika seyri</div>
+      <div class="chart-wrap"><canvas id="predChart"></canvas></div>
+      <div class="legend">
+        <span><i class="sw sw-mean"></i>MS tahmini</span>
+        <span><i class="sw sw-band"></i>%80 aralık</span>
+        <span><i class="sw sw-line"></i>Barem</span>
+        <span><i class="sw sw-lock"></i>Kilit anı</span>
+      </div>
+    </section>
+
+    <!-- Model -->
+    <section class="card model-card" id="modelCard" hidden>
+      <div class="card-title">Model</div>
+      <div class="model-body" id="modelBody"></div>
+    </section>
+
+    <!-- Dakika tablosu -->
+    <section class="card grid-card" id="gridCard" hidden>
+      <div class="card-title">Dakika başına toplam sayı</div>
+      <div class="minute-grid" id="minuteGrid"></div>
+    </section>
+
+    <!-- İstatistik -->
+    <section class="card stats-card" id="statsCard" hidden>
+      <div class="card-title">Takım istatistikleri</div>
+      <div id="statsBody"></div>
+    </section>
+
+    <details class="card log-card">
+      <summary>Bağlantı günlüğü</summary>
+      <pre id="log"></pre>
+    </details>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/lib/predictor.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

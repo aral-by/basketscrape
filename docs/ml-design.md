@@ -48,11 +48,12 @@ flowchart LR
 
 | Data | Source | Available for past matches? |
 |---|---|---|
-| Minute-by-minute cumulative score | Our own live recordings | **No.** Flashscore's point-by-point feed has no timestamps (verified 2026-11). |
+| Minute-by-minute cumulative score, EuroLeague / EuroCup | Official live-stats API (`basketml/euroleague.py`) | **Yes.** 2873 games, 2021-22 to 2026-27, in `ml/datasets/euroleague/` |
+| Minute-by-minute cumulative score, other leagues | Our own live recordings (`src/recorder.js`) | No. Flashscore's point-by-point feed has no timestamps (verified 2026-11). |
 | Quarter scores | Flashscore match summary | Yes, for every finished match |
-| Pre-game over/under line | Flashscore odds tab | Yes |
+| Pre-game over/under line | Flashscore odds tab | Yes, not collected yet |
 
-Consequently, the **third-quarter minute question can only be answered from our own recordings**. Quarter-level questions, such as the quarter-pattern hypotheses in §7, can be tested on historical data immediately.
+Every backfilled game is checked against the official quarter and final scores before it is kept; none of the 2873 failed.
 
 ### Record format (schema 1)
 
@@ -156,10 +157,28 @@ Early in the game the estimate stays close to the league mean; as `t` grows, the
 
 - It has very few parameters and is stable with little data.
 - Every parameter has a basketball meaning.
-- Its prediction intervals are calibrated (§8).
+- Its prediction intervals are nearly calibrated (0.85 coverage for a nominal 0.80 on real data; `eb_plus` corrects this).
 - It can be evaluated in a few lines of JavaScript in the live app.
 
-### 4.3 Learned models
+### 4.3 Empirical Bayes Plus (`eb_plus`, production model)
+
+Three weaknesses of `empirical_bayes` showed up on the real data (§9), and `eb_plus` fixes each one:
+
+| Finding on 2873 games | Fix |
+|---|---|
+| The whole −1.4 point bias at minute 28 comes from overtime games (bias +0.2 without them, +25 with them). Overtime probability depends on the margin: 7.4 % at ≤ 2 points after minute 28 vs 0.8 % at 13+. | Pace model predicts the **regulation** total. Overtime is a mixture component with `p_OT = logistic(z, z²)`, `z = |margin| / sd(remaining margin)`. |
+| EuroLeague regulation totals rose from 153 (2021-22) to 173 (2026-27); the all-time mean prior lags. | Prior uses `lg_recent`, an EWMA of earlier matches in the league (half-life 150). |
+| Team identity is unused. | `team_dev`: both teams' shrunk EWMA deviation from the league mean in earlier games. |
+| 80 % intervals covered 85 %: totals are sharper-peaked and heavier-tailed than normal. | `sd` is rescaled per minute so the 80 % interval is exact on the training matches. |
+
+```math
+\hat T = S_t + \hat R^{\text{reg}}_t + p_{OT}\,E[\text{OT pts}], \qquad
+\text{prior total} = b_0 + b_1\,\text{lg\_recent} + b_2\,\text{team\_dev}
+```
+
+`lg_recent` and `team_dev` are computed by `context.py` from **earlier** matches only; games that start at the same time never see each other's result. `prob_over(df, line)` returns `P(total > line)` from the two-component mixture, which is the quantity an over/under decision needs: because of the overtime tail the distribution is right-skewed and `P(total > mean) < 0.5`.
+
+### 4.4 Learned models
 
 - **`ridge`**: one ridge regression per minute. The target is the remaining pace `R_t / r`. The features are those in §3 plus the Empirical Bayes estimate `λ̂_t`, so ridge only learns what Empirical Bayes misses. Minutes with fewer than 40 complete training rows fall back to Empirical Bayes.
 - **`gbm`**: histogram gradient boosting over all minutes, with `t` as a feature. It is only worthwhile with roughly 1000 or more matches.
@@ -324,12 +343,53 @@ Real games have more structure than the simulator, so read these as **lower boun
 
 ---
 
-## 9. Usage
+## 9. Results on EuroLeague / EuroCup (2873 games)
+
+Expanding-window validation, 1724 out-of-sample games, minutes 21–36.
+
+**Mean absolute error of the full-time total (points)**
+
+| Minute | `eb_plus` | `empirical_bayes` | `ridge` | `gbm` | `naive_pace` | `pdf_kriter1` | `pdf_q2q3x2` |
+|---|---|---|---|---|---|---|---|
+| 21 | **9.28** | 9.46 | 9.46 | 9.88 | 11.41 | 38.10 | 38.72 |
+| 25 | **8.54** | 8.60 | 8.62 | 9.01 | 9.86 | 15.06 | 16.76 |
+| 28 | **7.68** | 7.69 | 7.71 | 8.09 | 8.63 | 10.96 | 13.51 |
+| 30 | 6.97 | **6.96** | 6.97 | 7.31 | 7.57 | 8.95 | 12.10 |
+| 36 | **5.30** | 5.30 | 5.30 | 5.49 | 5.88 | 8.95 | 12.10 |
+
+Predicting the league mean without any in-game information gives 14.7.
+
+**`eb_plus` vs `empirical_bayes` at minute 28**
+
+| | `empirical_bayes` | `eb_plus` |
+|---|---|---|
+| bias (pred − actual) | −1.36 | **+0.15** |
+| 80 % interval coverage | 0.85 | **0.80** |
+| 80 % interval half-width | ±13.4 | **±12.2** |
+| over/under Brier score* | 0.1547 | **0.1532** |
+| lines with ≥ 80 % confidence* | 46.9 % | **51.0 %** (hit rate 0.89) |
+
+\* Hypothetical lines at the prediction ±0.5…15.5 points. `prob_over` is calibrated: when it says 0.8–0.9 the over wins 0.856 of the time.
+
+**Prediction minute.**
+
+- Non-inferiority (δ = 1 point vs minute 30) selects **minute 28**.
+- The sequential rule with `σ* = 9.5` fires on average at minute 28.5 with MAE 7.46.
+
+**Criterion 1** is rejected: `P(Q4 ≥ Q3 | Q2 > Q1) = 0.561` (95 % CI 0.53–0.59), and the condition carries no information (Fisher p = 0.16).
+
+**What did not help.** Better priors only move early minutes: by minute 28 the game's own pace dominates and roughly ±7–8 points of irreducible noise remain in the last 12 minutes.
+
+---
+
+## 10. Usage
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -r ml/requirements.txt
 cd ml
-../.venv/bin/python -m pytest                                       # 18 tests
+../.venv/bin/python -m pytest                                       # 35 tests
+../.venv/bin/python -m basketml backfill-euroleague --seasons E2025 U2025   # official API
+../.venv/bin/python -m basketml evaluate --data datasets/euroleague # 2873 real games
 ../.venv/bin/python -m basketml evaluate --data ../data/matches     # real recordings
 ../.venv/bin/python -m basketml evaluate --synthetic 400            # pipeline check
 ../.venv/bin/python -m basketml kriter1  --data ../data/matches     # Criterion 1 test
@@ -339,16 +399,16 @@ cd ml
 
 ---
 
-## 10. Roadmap
+## 11. Roadmap
 
 ```mermaid
 flowchart LR
     A["1 · Collector<br/>auto-discover live matches,<br/>record in parallel,<br/>persistent storage"] --> C
-    B["2 · Historical backfill<br/>quarter scores +<br/>pre-game lines"] --> C
+    B["2 · Historical backfill<br/>EuroLeague/EuroCup done;<br/>pre-game lines next"] --> C
     B --> H["test Criterion 1<br/>on real data"]
     C["3 · Train on<br/>real recordings"] --> D["4 · Live integration<br/>model.json in Node,<br/>new prediction UI"]
 ```
 
 1. **Collector.** Find live matches in the target leagues automatically, record several at once, and store the recordings persistently.
-2. **Historical backfill.** Collect quarter scores and pre-game lines from past matches. This tests Criterion 1 at once and gives Empirical Bayes a stronger prior: on synthetic data the line prior lowers early-minute error.
+2. **Historical backfill.** Done for EuroLeague and EuroCup (2873 games). Pre-game lines are next: they are the strongest prior and are needed to measure value against the market.
 3. **Live integration.** Load the exported parameters in Node and build the new prediction UI on top of them.

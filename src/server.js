@@ -2,9 +2,11 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const { startWatcher } = require('./scraper');
+// DEMO_GAME=<id|random>: Flashscore yerine veri setindeki bitmiş bir maçı yeniden oynatır.
+const { startWatcher } = process.env.DEMO_GAME ? require('./demo') : require('./scraper');
 const { isAllowedMatchUrl } = require('./parse');
 const { MatchRecorder } = require('./recorder');
+const { LiveForecast, loadPredictor } = require('./liveForecast');
 
 // ML eğitim verisi: izlenen her maç buraya kaydedilir. RECORD_MATCHES=0 ile kapatılabilir.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data/matches');
@@ -14,8 +16,17 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+const predictor = loadPredictor();
+if (!predictor) console.warn('UYARI: models/eb_plus.json yüklenemedi — tahminler kapalı.');
+const forecast = new LiveForecast(predictor);
+
 app.use(express.json());
+// Eski panel adresi yeni panele yönlenir.
+app.get('/analysis.html', (req, res) => res.redirect(301, '/'));
 app.use(express.static(path.join(__dirname, '../public')));
+// Tahmin matematiği tarayıcıda da çalışır (barem yazılırken Üst/Alt olasılığı anında hesaplanır).
+app.get('/lib/predictor.js', (req, res) => res.sendFile(path.join(__dirname, 'predictor.js')));
+app.get('/api/model', (req, res) => res.json(forecast.info()));
 
 let activeWatcher  = null;
 let activeRecorder = null;
@@ -24,17 +35,21 @@ let activeRecorder = null;
 let lastStatus = null;
 let lastUpdate = null;
 let lastEnd    = null;
+let lastPrediction = null;
 
 function clearSnapshot() {
   lastStatus = null;
   lastUpdate = null;
   lastEnd    = null;
+  lastPrediction = null;
+  forecast.reset();
 }
 
 io.on('connection', (socket) => {
   if (lastStatus) socket.emit('matchStatus', lastStatus);
   if (lastUpdate) socket.emit('scoreUpdate', lastUpdate);
   if (lastEnd)    socket.emit('matchEnd', lastEnd);
+  if (lastPrediction) socket.emit('prediction', lastPrediction);
 });
 
 function stopActive() {
@@ -71,11 +86,18 @@ app.post('/start', (req, res) => {
       if (recorder) recorder.update(state);
       lastUpdate = state;
       io.emit('scoreUpdate', state);
+      lastPrediction = forecast.update(state);
+      io.emit('prediction', lastPrediction);
     },
     (result) => {
       if (activeWatcher !== watcher) return;
       if (recorder) recorder.finish(result);
       lastEnd = result;
+      const done = forecast.finish(result);
+      if (done) {
+        lastPrediction = done;
+        io.emit('prediction', done);
+      }
       activeWatcher = null;
       activeRecorder = null;
       io.emit('matchEnd', result);

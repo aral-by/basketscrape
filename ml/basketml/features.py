@@ -63,14 +63,21 @@ def features_at(m: Match, t: int) -> dict:
 
 
 def build_dataset(matches: list[Match], minutes: list[int]) -> pd.DataFrame:
-    """Her (maç, dakika) için bir satır. Maçlar verilen sırada `order` alır (zaman sırası)."""
+    """Her (maç, dakika) için bir satır. Maçlar verilen sırada `order` alır (zaman sırası).
+
+    Ek sütunlar: y_reg (40. dakika toplamı), ot (uzatmaya gitti mi), lg_recent / team_dev
+    (yalnızca önceki maçlardan hesaplanan maç öncesi bağlam, bkz. context.py)."""
+    from .context import pregame_context
+    ctx = pregame_context(matches)
     rows = []
     for order, m in enumerate(matches):
         y = m.final_total
+        y_reg = m.regulation_total
         for t in minutes:
             if t > len(m.cum_total) or np.isnan(m.at(t)):
                 continue  # o dakika gözlenmemiş (maç ortası başlangıç)
             f = features_at(m, t)
-            f.update(match_id=m.id, order=order, league=league_key(m.league), y=y, R=y - f["S"])
+            f.update(match_id=m.id, order=order, league=league_key(m.league), y=y, R=y - f["S"],
+                     y_reg=y_reg, ot=bool(np.isfinite(y_reg) and y > y_reg), **ctx[m.id])
             rows.append(f)
     return pd.DataFrame(rows)
