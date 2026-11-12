@@ -114,6 +114,9 @@ def cmd_backfill(args):
     fetcher = Fetcher(delay=args.delay)
     total = 0
     for season in args.seasons:
+        if (Path(args.out) / f"{season}.jsonl.gz").exists() and not args.force:
+            print(f"{season}: already downloaded, skipping (use --force to refetch)")
+            continue
         st = backfill_season(season, Path(args.out), fetcher)
         total += st.kept
     print(f"done: {total} games, {fetcher.requests} requests")
@@ -156,6 +159,7 @@ def main(argv=None):
     b.add_argument("--seasons", nargs="+", required=True, help="e.g. E2023 U2023 (E=EuroLeague, U=EuroCup)")
     b.add_argument("--out", default="datasets/euroleague")
     b.add_argument("--delay", type=float, default=0.35, help="seconds between requests")
+    b.add_argument("--force", action="store_true", help="refetch seasons that already exist")
     b.set_defaults(fn=cmd_backfill)
 
     args = p.parse_args(argv)

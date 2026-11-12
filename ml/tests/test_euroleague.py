@@ -86,3 +86,31 @@ def test_jsonl_gz_backfill_is_loaded_with_live_recordings(tmp_path):
     ms = load_matches(tmp_path)
     assert [m.id for m in ms] == ["E2023-001", "live1"]
     assert ms[0].final_total == 22
+
+
+def test_fetcher_survives_connection_resets(monkeypatch):
+    import io
+    import basketml.euroleague as el
+    calls = {"n": 0}
+
+    def flaky(req, timeout):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise ConnectionResetError(104, "Connection reset by peer")
+        return io.BytesIO(b'{"TeamA": "X"}')
+
+    monkeypatch.setattr(el.urllib.request, "urlopen", flaky)
+    monkeypatch.setattr(el.time, "sleep", lambda s: None)
+    assert el.Fetcher(delay=0, retries=4).get("Header", "E2023", 1) == {"TeamA": "X"}
+    assert calls["n"] == 3
+
+
+def test_fetcher_gives_up_after_retries(monkeypatch):
+    import basketml.euroleague as el
+
+    def down(req, timeout):
+        raise ConnectionResetError(104, "reset")
+
+    monkeypatch.setattr(el.urllib.request, "urlopen", down)
+    monkeypatch.setattr(el.time, "sleep", lambda s: None)
+    assert el.Fetcher(delay=0, retries=3).get("Header", "E2023", 1) is None
