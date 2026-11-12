@@ -42,7 +42,7 @@ flowchart LR
     DATA[("data/matches/*.json")]
     ML["ml/ (Python)<br/>training · evaluation"]
 
-    ANA -- "POST /start, /stop" --> SRV
+    ANA -- "POST/DELETE /api/matches" --> SRV
     SRV -- "startWatcher(url)" --> WAT
     WAT -- "headless Chromium, every 2 s" --> FS
     WAT -- "period, minute, score" --> SB
@@ -50,7 +50,7 @@ flowchart LR
     SRV -- "state" --> PRD
     MODEL --> PRD
     PRD -- "prediction" --> SRV
-    SRV -- "scoreUpdate / prediction /<br/>matchStatus / matchEnd" --> ANA
+    SRV -- "match:update / match:prediction /<br/>match:status / match:end<br/>(tagged with the match id)" --> ANA
     SRV -- "update / finish" --> REC
     REC --> DATA
     DATA --> ML
@@ -59,7 +59,9 @@ flowchart LR
 
 | Component | Responsibility |
 |---|---|
-| `src/server.js` | HTTP API, Socket.IO broadcast, single active watcher, snapshot replay for late-joining tabs |
+| `src/server.js` | HTTP API, Socket.IO broadcast, snapshot of every match for late-joining windows |
+| `src/matchManager.js` | Several matches at once: one session (watcher, recorder, forecast) per match, events tagged with the match id, resumes open matches after a restart |
+| `src/browserPool.js` | One shared headless Chrome; each match is a tab (images, fonts and video are not loaded) |
 | `src/scraper.js` | Browser lifecycle: wait for tip-off → main loop → finish. Crash recovery and stale-page reload |
 | `src/parse.js` | Pure parsers for period, minute, score and match status text; Flashscore URL allow-list |
 | `src/gameState.js` | Converts cumulative scores into per-minute points (baseline, overwrites, overtime, score corrections) |
@@ -74,6 +76,27 @@ flowchart LR
 
 ## Quick start
 
+### Windows: one-click install
+
+Download **[`BasketScrape-Kurulum.bat`](https://github.com/aral-by/basketscrape/raw/main/BasketScrape-Kurulum.bat)** and double-click it. If Windows SmartScreen warns, choose *More info → Run anyway*. The installer:
+
+1. installs Node.js LTS if it is missing (winget, or the official MSI);
+2. downloads the app from GitHub into `%LOCALAPPDATA%\BasketScrape` and installs its packages;
+3. puts a **BasketScrape** icon on the desktop and in the Start menu, then opens the app.
+
+The icon starts the server in a minimised window and opens the panel in its own app window (Edge or Chrome `--app` mode). On every start it pulls the latest version from GitHub (`scripts/update.js`); recordings and the list of open matches in `data/` are never touched. Clicking the icon while the app is running just opens another window. Closing the minimised console window stops the app.
+
+```mermaid
+flowchart LR
+    K["BasketScrape-Kurulum.bat"] --> N{"Node.js ≥ 18?"}
+    N -- no --> I["winget / nodejs.org MSI"] --> D
+    N -- yes --> D["update.js<br/>GitHub tarball → %LOCALAPPDATA%\\BasketScrape"]
+    D --> P["npm install"] --> L["desktop icon"]
+    L -. "every start" .-> U["launch.js: update → server → app window"]
+```
+
+### Any OS
+
 Requires **Node.js ≥ 18**.
 
 ```bash
@@ -81,22 +104,14 @@ npm install
 npm start            # http://localhost:3010
 ```
 
-1. Paste a Flashscore **EuroLeague** or **EuroCup** match URL and press **Start**.
-2. If the match has not started yet, the server keeps checking for tip-off in the background.
-3. The panel updates live. Type the bookmaker's line to get the over/under probability.
-4. **Stop** ends the session, including while it is still waiting for tip-off.
+1. Paste a Flashscore **EuroLeague** or **EuroCup** match URL and press **+ Maç ekle**. Add as many matches as you like: each gets a tab at the top, and all of them are watched at the same time in one shared Chrome.
+2. Matches that have not started yet are watched in the background until tip-off.
+3. The panel shows the selected match. Type the bookmaker's line to get the over/under probability; each tab shows its match's verdict.
+4. **×** on a tab (or **Maçı kaldır**) stops that match. Open matches resume automatically after a restart.
 
 Other leagues are still tracked and recorded, but the panel shows no prediction: the model has only been validated on EuroLeague and EuroCup.
 
-**Demo without Flashscore:** `DEMO_GAME=E2025-013 DEMO_SPEED=1500 npm start` (or `DEMO_GAME=random`), then start with any Flashscore URL. A finished game from `ml/datasets/euroleague` is replayed minute by minute.
-
-### Multiple instances (Windows)
-
-```bat
-kurulum.bat
-```
-
-Creates sibling copies `basketscrape-3020`, `-3030`, `-3040` and `-3050`, installs dependencies in each, and writes a `start.bat` that sets `PORT` for that copy.
+**Demo without Flashscore:** `DEMO_GAME=random DEMO_SPEED=1500 npm start`, then add any Flashscore URL (several, if you like). Finished games from `ml/datasets/euroleague` are replayed minute by minute.
 
 ---
 
@@ -111,6 +126,10 @@ Creates sibling copies `basketscrape-3020`, `-3030`, `-3040` and `-3050`, instal
 | `MODEL_PATH` | `models/eb_plus.json` | Prediction model exported by `python -m basketml export` |
 | `DEMO_GAME` | *(off)* | Replay a dataset game (`E2025-013`, `random`) instead of scraping |
 | `DEMO_SPEED` | `1500` | Demo: milliseconds per game minute |
+| `MAX_MATCHES` | `8` | Matches watched at the same time |
+| `SESSIONS_FILE` | `data/sessions.json` | Open matches, resumed after a restart |
+| `OPEN_BROWSER` | *(off)* | `1` opens the panel in an app window on start (set by the launcher) |
+| `BASKETSCRAPE_BRANCH` | `main` | Branch the installer and updater download |
 
 Only Flashscore URLs are accepted (`flashscore.com`, `flashscore.com.tr`, `flashscore.co.uk`, …). Any other address, including `file://` and internal hosts, is rejected with `400`.
 
@@ -120,7 +139,7 @@ Only Flashscore URLs are accepted (`flashscore.com`, `flashscore.com.tr`, `flash
 
 ```mermaid
 flowchart TB
-    SU["scoreUpdate<br/>(every 2 s)"] --> LF["liveForecast<br/>completed minutes only"]
+    SU["match:update<br/>(every 2 s, per match)"] --> LF["liveForecast<br/>completed minutes only"]
     LF --> NOW["live prediction<br/>mean · 80 % interval · P(OT)"]
     LF --> LOCK{"21 ≤ t ≤ 30 and<br/>σ̂ ≤ 9.5 (or t = 30)?"}
     LOCK -- "first time" --> LK["locked prediction"]
@@ -135,6 +154,7 @@ flowchart TB
 
 | Card | Content |
 |---|---|
+| Match tabs | One tab per watched match: score, quarter and minute, live/waiting dot, and the verdict for that match's line (`ÜST %83`, `PAS %64`, `KİLİT 162`). × removes the match |
 | Scoreboard | Teams, score, period and minute, quarter scores |
 | Prediction | Full-time total, 80 % interval, uncertainty, overtime probability. Phases: early → lock window → locked → final, with the lock's error at the end |
 | Line · Over/Under | Probability that the total goes over / under the typed line, from the locked or the live prediction; verdict against a 70–85 % threshold |
@@ -179,7 +199,7 @@ The full design, the mathematics and the sample-size analysis are in [`docs/ml-d
 ## Testing
 
 ```bash
-npm test                                   # Node: 45 tests
+npm test                                   # Node: 58 tests
 cd ml && ../.venv/bin/python -m pytest     # Python: 35 tests
 ```
 
@@ -187,18 +207,23 @@ cd ml && ../.venv/bin/python -m pytest     # Python: 35 tests
 |---|---|
 | `test/gameState.test.js` | Per-minute derivation, baselines, overtime indexing, score corrections, invalid input |
 | `test/parse.test.js` | Period, minute, score and status parsing in Turkish and English; URL allow-list |
-| `test/scraper.test.js` | Watcher lifecycle against a fake Puppeteer: stop before tip-off, finish, crash recovery |
+| `test/scraper.test.js` | Watcher lifecycle against a fake Puppeteer: stop before tip-off, finish, crash recovery; several matches sharing one browser |
+| `test/matchManager.test.js` | Several matches at once: duplicates, limit, per-match events, removal, finished matches, resume after restart |
+| `test/update.test.js` | GitHub tarball parsing (pax long names, unsafe paths), updates that keep `data/` and remove deleted files |
 | `test/recorder.test.js` | Recording format, mid-match starts, overtime, merging restarted sessions |
 | `test/predictor.test.js` | Parity with the Python model, team/league matching, completed-minute inputs, lock rule, league gate |
 | `ml/tests/` | No look-ahead leakage, model behaviour, calibration, validation folds, minute selection |
 
-No test needs a browser or network access.
+No test needs a browser or network access. The Windows batch files cannot be tested here; `scripts/update.js` and `scripts/launch.js`, which do the actual work, are.
 
 ---
 
 ## Deployment
 
-`nixpacks.toml` configures Railway with a system Chromium. Container file systems on most platforms are ephemeral: mount a persistent volume and point `DATA_DIR` at it, or match recordings are lost on every redeploy.
+- **Windows PC (recommended for daily use):** `BasketScrape-Kurulum.bat`, see [Quick start](#quick-start). Updates arrive automatically when the app starts.
+- **Server:** `nixpacks.toml` configures Railway with a system Chromium. Container file systems on most platforms are ephemeral: mount a persistent volume and point `DATA_DIR` and `SESSIONS_FILE` at it, or recordings and the list of open matches are lost on every redeploy.
+
+Every open match is a tab in one shared Chromium, so memory grows with the number of matches. Images, fonts and video are not loaded. `MAX_MATCHES` caps concurrent matches at 8 by default.
 
 ---
 
@@ -208,6 +233,9 @@ No test needs a browser or network access.
 basketscrape/
 ├── src/
 │   ├── server.js        HTTP API + Socket.IO
+│   ├── matchManager.js  several matches at once, resume after restart
+│   ├── browserPool.js   one shared Chromium, one tab per match
+│   ├── openApp.js       opens the panel as an app window
 │   ├── scraper.js       watcher lifecycle (Puppeteer)
 │   ├── parse.js         text parsers + URL allow-list
 │   ├── gameState.js     per-minute score engine
@@ -216,7 +244,7 @@ basketscrape/
 │   ├── liveForecast.js  live forecast and lock
 │   └── demo.js          dataset replay instead of scraping
 ├── models/eb_plus.json  exported model (parameters, team context, validation)
-├── public/              prediction panel (HTML, CSS, JS)
+├── public/              prediction panel (HTML, CSS, JS, icon)
 ├── test/                Node test suite
 ├── ml/
 │   ├── basketml/        data · features · models · evaluate · timing · simulate
@@ -225,7 +253,9 @@ basketscrape/
 │   ├── algo.md          scraping and scoring algorithm
 │   ├── formula.md       panel numbers and formulas
 │   └── ml-design.md     prediction model design
-├── kurulum.bat          multi-instance setup (Windows)
+├── BasketScrape-Kurulum.bat  one-click Windows installer
+├── BasketScrape.bat     launcher used by the desktop icon
+├── scripts/             update.js (GitHub updater), launch.js (launcher)
 └── nixpacks.toml        Railway configuration
 ```
 
@@ -236,7 +266,7 @@ basketscrape/
 | Document | Topic |
 |---|---|
 | [`docs/algo.md`](docs/algo.md) | Watcher lifecycle, match-state detection, per-minute score engine, recording format |
-| [`docs/formula.md`](docs/formula.md) | Every metric shown on the dashboard, with its exact formula |
+| [`docs/formula.md`](docs/formula.md) | Every number on the prediction panel, with its exact formula |
 | [`docs/ml-design.md`](docs/ml-design.md) | Final-total prediction: models, validation, minute selection, data requirements |
 
 ---

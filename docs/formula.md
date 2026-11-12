@@ -12,7 +12,7 @@ flowchart LR
     end
     MJ[("models/eb_plus.json")] --> CTX
     MJ --> PR
-    LF -- "prediction" --> UI
+    LF -- "match:prediction" --> UI
     subgraph Browser
         UI["app.js"] --> PO["probOver(mix, line)"]
         LINE["typed line"] --> PO
@@ -141,3 +141,16 @@ The validation numbers are taken from `models/eb_plus.json`. `python -m basketml
 | `t. dk ±5 içinde` | Share of predictions within 5 points |
 
 `t` is the lock minute once locked, otherwise the current minute.
+
+## 8. Several matches: tabs
+
+Each watched match has its own forecast, lock and line (the line is saved per match in the browser). The panel shows the selected match. Each tab summarises its match:
+
+| Tab badge | Condition |
+|---|---|
+| **ÜST %x** / **ALT %x** | locked, a line is set and `max(P(over), P(under)) ≥ threshold` |
+| **PAS %x** | locked and a line is set, but below the threshold |
+| **KİLİT T̂** | locked, no line yet |
+| *(none)* | not locked yet, or no prediction for this league |
+
+With **Canlı tahmin** selected, badges use the live prediction before the lock. The threshold is shared by all matches.

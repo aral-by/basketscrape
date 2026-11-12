@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="icon.png" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -23,18 +24,21 @@
 
     <form class="url-form" id="urlForm" autocomplete="off">
       <input type="url" id="urlInput" placeholder="Flashscore maç adresi (EuroLeague / EuroCup)" aria-label="Flashscore maç adresi" />
-      <button type="submit" id="startBtn" class="btn btn-primary">Başlat</button>
-      <button type="button" id="stopBtn" class="btn btn-ghost-danger" hidden>Durdur</button>
+      <button type="submit" id="startBtn" class="btn btn-primary">+ Maç ekle</button>
+      <button type="button" id="stopBtn" class="btn btn-ghost-danger" hidden>Maçı kaldır</button>
     </form>
 
     <div class="status-pill" id="statusPill" data-state="idle"><span class="dot"></span><span id="statusText">Bekliyor</span></div>
   </header>
 
+  <!-- İzlenen maçlar: her sekme bir maç; aynı anda birden çok maç izlenir -->
+  <nav class="tabs" id="tabs" aria-label="İzlenen maçlar" hidden></nav>
+
   <main class="layout">
     <!-- Boş durum -->
     <section class="card intro" id="introCard">
       <h1>Maç sonu toplamını canlı tahmin eder</h1>
-      <p>Flashscore'dan bir <b>EuroLeague</b> veya <b>EuroCup</b> maçının adresini yapıştırıp başlatın. Model her dakika sonunda maç sonu toplamını, %80 güven aralığını ve uzatma ihtimalini günceller; tahmini 21–30. dakikalar arasında, belirsizlik yeterince düştüğü an kilitler.</p>
+      <p>Flashscore'dan bir <b>EuroLeague</b> veya <b>EuroCup</b> maçının adresini yapıştırıp <b>+ Maç ekle</b>'ye basın. Aynı anda birden çok maç ekleyebilirsiniz; her maç üstte kendi sekmesinde izlenir. Model her dakika sonunda maç sonu toplamını, %80 güven aralığını ve uzatma ihtimalini günceller; tahmini 21–30. dakikalar arasında, belirsizlik yeterince düştüğü an kilitler.</p>
       <ol class="steps">
         <li><span>1</span>Maç adresini girin — maç başlamadıysa sistem bekler.</li>
         <li><span>2</span>Baremi yazın — Üst/Alt olasılığı anında hesaplanır.</li>

@@ -261,3 +261,46 @@ body {
   .mg-cell { height: 28px; font-size: 11px; }
   .chart-wrap { height: 240px; }
 }
+
+/* ── Maç sekmeleri (aynı anda birden çok maç) ───────────── */
+.tabs {
+  position: sticky; top: 63px; z-index: 9;
+  display: flex; gap: 8px; overflow-x: auto;
+  padding: 10px 24px;
+  background: rgba(10, 11, 15, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: thin;
+}
+.tab {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  padding: 7px 8px 7px 12px; border-radius: 10px;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--muted); font: inherit; font-size: 12px; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.tab:hover { border-color: var(--border-2); }
+.tab.on { background: var(--card-2); border-color: var(--accent); color: var(--text); }
+.tab .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+.tab[data-state="live"] .dot { background: var(--good); animation: pulse 1.4s infinite; }
+.tab[data-state="waiting"] .dot { background: var(--warn); }
+.tab[data-state="error"] .dot { background: var(--bad); }
+.tab-names { font-weight: 600; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab-score { font-family: var(--mono); color: var(--text); }
+.tab-min { font-family: var(--mono); color: var(--accent); font-size: 11px; }
+.tab-badge { font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px; letter-spacing: .3px; }
+.tab-badge[data-kind="over"], .tab-badge[data-kind="under"] { background: var(--good-bg); color: var(--good); }
+.tab-badge[data-kind="pass"] { background: rgba(251,191,36,.12); color: var(--warn); }
+.tab-badge[data-kind="lock"] { background: var(--card-2); color: var(--muted); }
+.tab-x {
+  width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center;
+  color: var(--dim); font-size: 14px; line-height: 1;
+}
+.tab-x:hover { background: var(--bad-bg); color: var(--bad); }
+@media (max-width: 640px) {
+  .tabs { top: 104px; padding: 8px 16px; }
+  .tab-names { max-width: 120px; }
+}
+@media (max-width: 640px) {
+  #stopBtn { display: none !important; }   /* mobilde kaldırma sekmedeki × ile */
+}
