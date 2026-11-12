@@ -59,7 +59,9 @@ function isMatchFinished(text) {
   const t = text.trim().toLowerCase();
   return t === 'bitti' || t === 'ms' || t === 'final' || t === 'ended' ||
     t.includes('bitti') || t.includes('finish') || t.includes('final') ||
-    t.includes('ended') || t.includes('maç sonu');
+    t.includes('ended') || t.includes('maç sonu') ||
+    // Uzatmalı maç sonu: "After Overtime" / "After Extra Time" / "Uzatmalardan Sonra" / "Uzatma Sonrası"
+    t.includes('after') || t.includes('sonra');
 }
 
 function isHalftime(text) {
