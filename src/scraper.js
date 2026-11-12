@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer');
 const ScoreBoard = require('./gameState');
+const { parseQuarter, parseMinute, parseScore, isMatchFinished, isHalftime } = require('./parse');
 
 // CSS selectors tried left-to-right; first non-empty match wins.
 // When Flashscore updates their DOM, prepend the new selector to the relevant array
@@ -129,54 +130,6 @@ async function debugPageState(page, log) {
   } catch {}
 }
 
-// "1. Çeyrek" → 1  |  "Q2" / "2nd Quarter" → 2  |  "1. Uzatma" / "OT1" → 5
-function parseQuarter(text) {
-  if (!text) return null;
-  const t = text.trim();
-
-  // Turkish: "1. Çeyrek", "2. Çeyrek" …
-  const qTr = t.match(/^(\d+)\.\s*[Çç]eyrek/i);
-  if (qTr) return parseInt(qTr[1]);
-
-  // Turkish OT: "1. Uzatma", "2. Uzatma" …
-  const otTr = t.match(/^(\d+)\.\s*[Uu]zatma/i);
-  if (otTr) return 4 + parseInt(otTr[1]);
-  if (/uzatma/i.test(t)) return 5;
-
-  // English abbreviated: "Q1" … "Q4"
-  const qEn = t.match(/^Q(\d+)$/i);
-  if (qEn) return parseInt(qEn[1]);
-
-  // English long: "1st Quarter", "2nd Quarter", "3rd Quarter", "4th Quarter"
-  const qEnLong = t.match(/^(\d+)[a-z]{0,2}\s*quarter/i);
-  if (qEnLong) return parseInt(qEnLong[1]);
-
-  // English OT: "OT", "OT1", "OT2" …
-  const otEn = t.match(/^OT(\d*)$/i);
-  if (otEn) return 4 + (parseInt(otEn[1]) || 1);
-
-  // Numeric only (some layouts just show "1", "2" …)
-  const bare = t.match(/^(\d)$/);
-  if (bare) return parseInt(bare[1]);
-
-  return null;
-}
-
-function isMatchFinished(text) {
-  if (!text) return false;
-  const t = text.trim().toLowerCase();
-  return t === 'bitti' || t === 'ms' || t === 'final' || t === 'ended' ||
-    t.includes('bitti') || t.includes('finish') || t.includes('final') ||
-    t.includes('ended') || t.includes('maç sonu');
-}
-
-function isHalftime(text) {
-  if (!text) return false;
-  const t = text.trim().toLowerCase();
-  return t.includes('devre') || t === 'iy' || t === 'ht' ||
-    t.includes('half') || t.includes('break') || t.includes('interval');
-}
-
 async function parseMatchData(page, log) {
   const periodText = await getElementText(page, SELECTORS.period);
   const minuteText = await getElementText(page, SELECTORS.minute);
@@ -184,17 +137,10 @@ async function parseMatchData(page, log) {
   const awayText   = await getElementText(page, SELECTORS.awayScore);
 
   const period    = parseQuarter(periodText);
-
   // Flashscore bazen period + dakikayı tek string'de birleştirir: "2. Çeyrek6'"
-  // Önce ayrı minute selector'ı dene; bulamazsan period text'inden çek.
-  let minute = minuteText ? (parseInt(minuteText) || null) : null;
-  if (minute === null && periodText) {
-    const m = periodText.match(/(\d+)['']?\s*$/);
-    if (m) minute = parseInt(m[1]);
-  }
-
-  const homeScore = homeText   ? (parseInt(homeText.replace(/\D/g, '')) || 0) : null;
-  const awayScore = awayText   ? (parseInt(awayText.replace(/\D/g, '')) || 0) : null;
+  const minute    = parseMinute(minuteText, periodText);
+  const homeScore = parseScore(homeText);
+  const awayScore = parseScore(awayText);
   const finished  = isMatchFinished(periodText);
   const halftime  = isHalftime(periodText);
 
@@ -247,29 +193,90 @@ async function fetchStats(page) {
   }
 }
 
+
+const MAIN_INTERVAL       = 2_000;   // ana döngü: her 2 sn skor okuma
+const START_POLL_INTERVAL = 10_000;  // maç başlamadıysa sayfayı bu aralıkla yenile
+const STATS_INTERVAL      = 30_000;  // istatistik sekmesi yenileme aralığı
+const STALE_RELOAD_MS     = 120_000; // skor/dakika bu kadar süre değişmezse sayfayı yenile
+const MAX_CONSECUTIVE_ERRORS = 5;    // bu kadar ardışık hatada tarayıcıyı yeniden başlat
+
+// networkidle2 Flashscore'da (reklam, websocket) sık zaman aşımına düşer.
+// Zaman aşımında sayfa genelde kullanılabilir durumdadır → hata atmak yerine devam et.
+async function loadPage(page, url, log, timeout) {
+  try {
+    if (url) await page.goto(url, { waitUntil: 'networkidle2', timeout });
+    else     await page.reload({ waitUntil: 'networkidle2', timeout });
+  } catch (e) {
+    if (e.name !== 'TimeoutError') throw e;
+    log('Sayfa tam yüklenmedi (zaman aşımı), mevcut haliyle devam ediliyor.');
+  }
+}
+
+function isStarted(data) {
+  // parseQuarter("Devre Arası") null döner; devre arasında bağlanılan maç da başlamış sayılır.
+  return (data.period && data.period >= 1) || data.halftime;
+}
+
+// Maçı izlemeye başlar ve { stop } nesnesini HEMEN döndürür. Tarayıcı açma, maçın başlamasını
+// bekleme ve ana döngü arka planda çalışır; böylece maç başlamadan da stop() çağrılabilir.
+//
 // onStatus({ status: 'not_started'|'running'|'finished'|'error', homeName, awayName, message })
-async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
+// onEnd yalnızca maç kendiliğinden bittiğinde veya hata oluştuğunda çağrılır, stop() ile değil.
+// opts: zamanlama sabitlerini geçersiz kılmak için (testlerde kullanılır).
+function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
+  const {
+    mainInterval      = MAIN_INTERVAL,
+    startPollInterval = START_POLL_INTERVAL,
+    statsInterval     = STATS_INTERVAL,
+    staleReloadMs     = STALE_RELOAD_MS,
+  } = opts;
   const log    = onLog    || (() => {});
   const status = onStatus || (() => {});
+
   let browser = null;
+  let page    = null;
   let stopped = false;
-  let mainLoopTimer = null;
-  let watchTimer = null;
+  let wakeTimer   = null;
+  let wakeResolve = null;
 
   const scoreBoard = new ScoreBoard();
-  let lastStats        = null;
-  let lastStatsFetchAt = 0;
-  const STATS_INTERVAL = 30_000; // ms
+  let homeName = 'Ev Sahibi';
+  let awayName = 'Misafir';
+  let lastStats = null;
 
-  function stop() {
-    stopped = true;
-    clearTimeout(mainLoopTimer);
-    clearTimeout(watchTimer);
-    if (browser) browser.close().catch(() => {});
+  // stop() çağrılınca hemen uyanan bekleme
+  function sleep(ms) {
+    return new Promise(resolve => {
+      if (stopped) return resolve();
+      wakeResolve = resolve;
+      wakeTimer   = setTimeout(resolve, ms);
+    });
   }
 
-  try {
-    browser = await puppeteer.launch({
+  function closeBrowser() {
+    const b = browser;
+    browser = null;
+    page    = null;
+    if (b) b.close().catch(() => {});
+  }
+
+  function stop() {
+    if (stopped) return;
+    stopped = true;
+    clearTimeout(wakeTimer);
+    if (wakeResolve) wakeResolve();
+    closeBrowser();
+  }
+
+  function finish(result) {
+    if (stopped) return;
+    stop();
+    onEnd(result);
+  }
+
+  async function openBrowser() {
+    closeBrowser();
+    const b = await puppeteer.launch({
       headless: true,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       args: [
@@ -280,83 +287,102 @@ async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
         '--disable-gpu',
       ],
     });
+    if (stopped) { b.close().catch(() => {}); return; }
 
-    const page = await browser.newPage();
-    await page.setUserAgent(
+    browser = b;
+    b.on('disconnected', () => {
+      if (browser !== b) return; // bilerek kapatıldı
+      browser = null;
+      page    = null;
+      if (!stopped) log('Tarayıcı bağlantısı koptu, yeniden açılacak.');
+    });
+
+    const p = await b.newPage();
+    await p.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
     );
-    await page.setViewport({ width: 1280, height: 800 });
-
+    await p.setViewport({ width: 1280, height: 800 });
     log('Sayfa açılıyor...');
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+    await loadPage(p, url, log, 30_000);
+    if (browser === b) page = p;
+  }
 
-    const homeName = (await getElementText(page, SELECTORS.homeName)) || 'Ev Sahibi';
-    const awayName = (await getElementText(page, SELECTORS.awayName)) || 'Misafir';
+  function finishedResult(reason) {
+    return { reason, state: { ...scoreBoard.getState(), homeName, awayName, stats: lastStats } };
+  }
+
+  async function run() {
+    await openBrowser();
+    if (stopped) return;
+
+    homeName = (await getElementText(page, SELECTORS.homeName)) || homeName;
+    awayName = (await getElementText(page, SELECTORS.awayName)) || awayName;
     log(`Takımlar: ${homeName} - ${awayName}`);
 
-    const initialData = await parseMatchData(page, log);
+    let data = await parseMatchData(page, log);
+    if (stopped) return;
 
-    if (initialData.finished) {
+    if (data.finished) {
       log('Maç zaten bitmiş.');
       status({ status: 'finished', homeName, awayName, message: 'Bu maç sona ermiş.' });
-      onEnd({ reason: 'already_finished', state: scoreBoard.getState(), homeName, awayName });
-      stop();
-      return { stop };
+      finish(finishedResult('already_finished'));
+      return;
     }
 
-    if (!initialData.period) {
+    // ── Maçın başlamasını bekle ──
+    if (!isStarted(data)) {
       log('Maç henüz başlamadı, bekleniyor...');
       status({ status: 'not_started', homeName, awayName, message: 'Maç henüz başlamadı.' });
-    }
 
-    await new Promise((resolve, reject) => {
-      async function checkStart() {
-        if (stopped) return reject(new Error('stopped'));
+      while (!stopped) {
+        await sleep(startPollInterval);
+        if (stopped) return;
         try {
-          await page.reload({ waitUntil: 'networkidle2', timeout: 15000 });
-          const data = await parseMatchData(page, log);
+          if (!page) await openBrowser();
+          else       await loadPage(page, null, log, 15_000);
+          if (stopped) return;
+          data = await parseMatchData(page, log);
           log('Durum: ' + (data.periodText || '—'));
           if (data.finished) {
             status({ status: 'finished', homeName, awayName, message: 'Bu maç sona ermiş.' });
-            reject(new Error('Maç bitti.'));
+            finish(finishedResult('finished'));
             return;
           }
-          // Not: parseQuarter("Devre Arası") null döner (çeyrek numarası içermiyor),
-          // bu yüzden devre arasında bağlanan maç da "başlamış" sayılmalı — yoksa
-          // checkStart() sonsuza kadar bekler ve mainLoop()'a hiç geçilmez.
-          if ((data.period && data.period >= 1) || data.halftime) {
+          if (isStarted(data)) {
             log('Maç başladı! ' + (data.periodText || 'Devre arası'));
-            resolve();
-            return;
+            break;
           }
         } catch (e) {
           log('Kontrol hatası: ' + e.message);
         }
-        watchTimer = setTimeout(checkStart, 3000);
       }
-
-      if ((initialData.period && initialData.period >= 1) || initialData.halftime) {
-        resolve();
-      } else {
-        checkStart();
-      }
-    });
-
-    if (stopped) return { stop };
+    }
+    if (stopped) return;
 
     log('Ana servis başladı.');
     status({ status: 'running', homeName, awayName, message: 'Maç devam ediyor.' });
 
     log('İlk istatistikler alınıyor...');
-    lastStats        = await fetchStats(page);
-    lastStatsFetchAt = Date.now();
+    lastStats = await fetchStats(page);
+    let lastStatsFetchAt = Date.now();
     if (lastStats) log('İstatistikler alındı.');
 
-    async function mainLoop() {
-      if (stopped) return;
+    // ── Ana döngü ──
+    let lastSignature = null;
+    let lastChangeAt  = Date.now();
+    let errors        = 0;
+
+    while (!stopped) {
       try {
+        if (!page) {
+          log('Sayfa yeniden açılıyor...');
+          await openBrowser();
+          if (stopped) return;
+          lastChangeAt = Date.now();
+        }
+
         const now = Date.now();
-        if (now - lastStatsFetchAt >= STATS_INTERVAL) {
+        if (now - lastStatsFetchAt >= statsInterval) {
           const fresh = await fetchStats(page);
           if (fresh) {
             lastStats        = fresh;
@@ -366,17 +392,32 @@ async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
         }
 
         const data = await parseMatchData(page, log);
+        if (stopped) return;
+        errors = 0;
 
         if (data.finished) {
           log('Maç bitti.');
           status({ status: 'finished', homeName, awayName, message: 'Maç sona erdi.' });
           const finalStats = await fetchStats(page);
-          onEnd({ reason: 'finished', state: { ...scoreBoard.getState(), homeName, awayName, stats: finalStats || lastStats } });
-          stop();
+          if (finalStats) lastStats = finalStats;
+          finish(finishedResult('finished'));
           return;
         }
 
-        if (!data.halftime && data.period && data.minute !== null && data.homeScore !== null) {
+        // Bayat sayfa tespiti: canlı güncellemeler durursa sayfayı yenile.
+        // (Basketbolda saat sık durur; bu yüzden eşik 2 dakika, yenileme zararsız.)
+        const signature = [data.periodText, data.minute, data.homeScore, data.awayScore].join('|');
+        if (signature !== lastSignature) {
+          lastSignature = signature;
+          lastChangeAt  = Date.now();
+        } else if (Date.now() - lastChangeAt > staleReloadMs) {
+          log('Uzun süredir değişiklik yok, sayfa yenileniyor...');
+          await loadPage(page, null, log, 15_000);
+          lastChangeAt = Date.now();
+        }
+
+        if (!data.halftime && data.period && data.minute !== null &&
+            data.homeScore !== null && data.awayScore !== null) {
           scoreBoard.update(data.period, data.minute, data.homeScore, data.awayScore);
           onUpdate({
             ...scoreBoard.getState(),
@@ -391,19 +432,26 @@ async function startWatcher(url, onUpdate, onEnd, onLog, onStatus) {
           log('Bekleniyor: ' + (data.periodText || '—'));
         }
       } catch (e) {
+        if (stopped) return;
+        errors++;
         log('Scrape hatası: ' + e.message);
+        if (errors >= MAX_CONSECUTIVE_ERRORS) {
+          log(`${errors} ardışık hata, tarayıcı yeniden başlatılacak.`);
+          closeBrowser();
+          errors = 0;
+        }
       }
 
-      mainLoopTimer = setTimeout(mainLoop, 2000);
+      await sleep(mainInterval);
     }
-
-    mainLoop();
-  } catch (e) {
-    log('Watcher hatası: ' + e.message);
-    status({ status: 'error', message: e.message });
-    onEnd({ reason: 'error', error: e.message, state: scoreBoard.getState() });
-    if (browser) browser.close().catch(() => {});
   }
+
+  run().catch(e => {
+    if (stopped) return;
+    log('Watcher hatası: ' + e.message);
+    status({ status: 'error', homeName, awayName, message: e.message });
+    finish({ reason: 'error', error: e.message, state: scoreBoard.getState() });
+  });
 
   return { stop };
 }

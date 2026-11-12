@@ -73,7 +73,9 @@ socket.on('matchStatus', ({ status, homeName, awayName, message }) => {
   }
 });
 
-socket.on('matchEnd', () => {
+socket.on('matchEnd', (result) => {
+  // Hata durumunda matchStatus zaten hata mesajını gösterdi; üzerine yazma.
+  if (result && result.reason === 'error') return;
   setStatus('finished', 'Maç Sona Erdi');
   analysisLink.style.display = 'inline-block';
   stopBtn.style.display = 'none';

@@ -5,7 +5,7 @@
 - User submits a match URL.
 - The scraper does not start immediately — it waits for the match to begin.
 - While waiting, the system:
-  - Reloads the page every 3 seconds.
+  - Reloads the page every 10 seconds.
   - Checks the match status.
 - The value checked: period text (e.g. `1st Quarter` or blank/`0`)
 - If period is blank or zero → match has not started, keep polling.
