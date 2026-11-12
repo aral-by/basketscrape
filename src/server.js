@@ -4,6 +4,11 @@ const { Server } = require('socket.io');
 const path = require('path');
 const { startWatcher } = require('./scraper');
 const { isAllowedMatchUrl } = require('./parse');
+const { MatchRecorder } = require('./recorder');
+
+// ML eğitim verisi: izlenen her maç buraya kaydedilir. RECORD_MATCHES=0 ile kapatılabilir.
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data/matches');
+const RECORD_MATCHES = process.env.RECORD_MATCHES !== '0';
 
 const app = express();
 const server = http.createServer(app);
@@ -12,7 +17,8 @@ const io = new Server(server);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-let activeWatcher = null;
+let activeWatcher  = null;
+let activeRecorder = null;
 
 // Sonradan bağlanan sekmeler (örn. analiz sayfası) boş ekran görmesin diye son durum saklanır.
 let lastStatus = null;
@@ -36,6 +42,10 @@ function stopActive() {
     activeWatcher.stop();
     activeWatcher = null;
   }
+  if (activeRecorder) {
+    activeRecorder.stop();
+    activeRecorder = null;
+  }
 }
 
 app.post('/start', (req, res) => {
@@ -49,6 +59,8 @@ app.post('/start', (req, res) => {
   clearSnapshot();
   io.emit('log', 'Scraper başlatılıyor...');
 
+  const recorder = RECORD_MATCHES ? new MatchRecorder(url, { dir: DATA_DIR }) : null;
+
   // startWatcher hemen döner; maçın başlamasını arka planda bekler.
   // Callback'ler yalnızca HÂLÂ aktif olan watcher içinse yayın yapar — eski bir
   // watcher'ın geç gelen olayları yenisinin durumunu ezmesin.
@@ -56,13 +68,16 @@ app.post('/start', (req, res) => {
     url,
     (state) => {
       if (activeWatcher !== watcher) return;
+      if (recorder) recorder.update(state);
       lastUpdate = state;
       io.emit('scoreUpdate', state);
     },
     (result) => {
       if (activeWatcher !== watcher) return;
+      if (recorder) recorder.finish(result);
       lastEnd = result;
       activeWatcher = null;
+      activeRecorder = null;
       io.emit('matchEnd', result);
     },
     (msg) => {
@@ -75,7 +90,8 @@ app.post('/start', (req, res) => {
       io.emit('matchStatus', statusInfo);
     }
   );
-  activeWatcher = watcher;
+  activeWatcher  = watcher;
+  activeRecorder = recorder;
 
   res.json({ ok: true });
 });

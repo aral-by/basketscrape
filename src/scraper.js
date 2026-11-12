@@ -61,6 +61,13 @@ const SELECTORS = {
     '[class*="timer"] > span:first-child',
     `${BASE}/div[3]/div/div[2]/div/span[2]`,   // XPath fallback (aynı div içinde span[2])
   ],
+  // Breadcrumb: "BasketballEuropeEuroleague - Round 11" (2026-11 doğrulandı)
+  league: [
+    'nav[data-testid="wcl-breadcrumbs"] li:last-child',
+    'nav[data-testid="wcl-breadcrumbs"]',
+    '[data-testid*="breadcrumb"]',
+    '.tournamentHeader__country',
+  ],
   statsTab: [
     '[data-testid="wcl-tab-statistics"]',
     'a[href*="statistics"] button',
@@ -242,7 +249,9 @@ function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
   const scoreBoard = new ScoreBoard();
   let homeName = 'Ev Sahibi';
   let awayName = 'Misafir';
+  let league   = null;
   let lastStats = null;
+  let lastScore = null; // son okunan { home, away } — maç sonu skoru için
 
   // stop() çağrılınca hemen uyanan bekleme
   function sleep(ms) {
@@ -308,7 +317,17 @@ function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
   }
 
   function finishedResult(reason) {
-    return { reason, state: { ...scoreBoard.getState(), homeName, awayName, stats: lastStats } };
+    return {
+      reason,
+      final: lastScore,
+      state: { ...scoreBoard.getState(), homeName, awayName, league, stats: lastStats },
+    };
+  }
+
+  function rememberScore(data) {
+    if (data.homeScore !== null && data.awayScore !== null) {
+      lastScore = { home: data.homeScore, away: data.awayScore };
+    }
   }
 
   async function run() {
@@ -317,10 +336,12 @@ function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
 
     homeName = (await getElementText(page, SELECTORS.homeName)) || homeName;
     awayName = (await getElementText(page, SELECTORS.awayName)) || awayName;
-    log(`Takımlar: ${homeName} - ${awayName}`);
+    league   = await getElementText(page, SELECTORS.league);
+    log(`Takımlar: ${homeName} - ${awayName}` + (league ? ` (${league})` : ''));
 
     let data = await parseMatchData(page, log);
     if (stopped) return;
+    rememberScore(data);
 
     if (data.finished) {
       log('Maç zaten bitmiş.');
@@ -342,6 +363,7 @@ function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
           else       await loadPage(page, null, log, 15_000);
           if (stopped) return;
           data = await parseMatchData(page, log);
+          rememberScore(data);
           log('Durum: ' + (data.periodText || '—'));
           if (data.finished) {
             status({ status: 'finished', homeName, awayName, message: 'Bu maç sona ermiş.' });
@@ -394,6 +416,7 @@ function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
         const data = await parseMatchData(page, log);
         if (stopped) return;
         errors = 0;
+        rememberScore(data);
 
         if (data.finished) {
           log('Maç bitti.');
@@ -421,7 +444,8 @@ function startWatcher(url, onUpdate, onEnd, onLog, onStatus, opts = {}) {
           scoreBoard.update(data.period, data.minute, data.homeScore, data.awayScore);
           onUpdate({
             ...scoreBoard.getState(),
-            homeName, awayName,
+            homeName, awayName, league,
+            period:     data.period,
             periodText: data.periodText,
             minute:     data.minute,
             homeScore:  data.homeScore,

@@ -165,6 +165,7 @@ test('maç bitince onEnd bir kez çağrılır ve tarayıcı kapanır', async () 
   assert.equal(ev.ends.length, 1);
   assert.equal(ev.ends[0].reason, 'finished');
   assert.equal(ev.ends[0].state.homeName, 'Ev Takımı');
+  assert.deepEqual(ev.ends[0].final, { home: 82, away: 75 });
   assert.ok(fake.browsers.every(b => b.closed));
 });
 

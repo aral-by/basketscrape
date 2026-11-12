@@ -36,10 +36,10 @@ test('parseScore: rakam olmayan metin null döner (0 değil)', () => {
 });
 
 test('isMatchFinished / isHalftime', () => {
-  for (const t of ['Bitti', 'MS', 'Final', 'Uzatmalardan Sonra Bitti', 'Finished']) {
+  for (const t of ['Bitti', 'MS', 'Final', 'Uzatmalardan Sonra Bitti', 'Finished', 'After Overtime', 'AFTER OVERTIME', 'Uzatma Sonrası']) {
     assert.equal(isMatchFinished(t), true, t);
   }
-  for (const t of ['1. Çeyrek', 'Devre Arası', null]) {
+  for (const t of ['1. Çeyrek', '1. Uzatma', 'Overtime', 'Devre Arası', null]) {
     assert.equal(isMatchFinished(t), false, String(t));
   }
   for (const t of ['Devre Arası', 'HT', 'Halftime', 'Break']) {
