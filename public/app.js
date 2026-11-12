@@ -54,7 +54,7 @@
   }
 
   // ── görünümler: Tahmin + detaylı analiz bölümleri ────────────────────────
-  const VIEWS = ['predict', 'summary', 'flow', 'tables', 'team', 'stats', 'heat', 'patterns'];
+  const VIEWS = ['predict', 'summary', 'players', 'flow', 'tables', 'team', 'stats', 'heat', 'patterns'];
   let view = VIEWS.includes(store.get('view', 'predict')) ? store.get('view', 'predict') : 'predict';
   let matchShown = false;
 
@@ -71,7 +71,28 @@
 
   function renderView() {
     if (!matchShown || view === 'predict' || !score) return;
-    window.BasketAnalysis.render(view, score);
+    const m = matches.get(selected);
+    window.BasketAnalysis.render(view, score, {
+      box: m && m.box,
+      supported: !(m && m.prediction && m.prediction.unsupported),
+    });
+  }
+
+  // Takım faulü + bonus (resmi EuroLeague/EuroCup verisi varsa) skor tabelasında
+  function renderFouls() {
+    const m = matches.get(selected);
+    const box = m && m.box;
+    const row = $('sbFouls');
+    row.hidden = !box || !!m.end;
+    if (row.hidden) return;
+    const put = (id, t) => {
+      const e = $(id);
+      e.replaceChildren();
+      e.append(el('span', 'mono', String(t.fouls.current)));
+      if (t.fouls.bonus) e.append(el('span', 'bonus', 'BONUS'));
+    };
+    put('sbHomeFouls', box.home);
+    put('sbAwayFouls', box.away);
   }
 
   $('viewTabs').addEventListener('click', (e) => {
@@ -283,6 +304,16 @@
     if (refreshSelected(id)) renderAll();
   });
 
+  socket.on('match:box', ({ id, box }) => {
+    const m = matches.get(id);
+    if (!m) return;
+    m.box = box;
+    if (id === selected) {
+      renderFouls();
+      if (view === 'players' || view === 'team') renderView();
+    }
+  });
+
   socket.on('match:log', ({ id, at, msg }) => {
     const m = matches.get(id);
     if (!m) return;
@@ -378,6 +409,7 @@
       d.append(el('div', 'k', q.label), el('div', 'v', `${q.h}–${q.a}`));
       box.append(d);
     }
+    renderFouls();
   }
 
   // ── tahmin kartı ────────────────────────────────────────────────────────
@@ -403,7 +435,7 @@
         : (pred && pred.reason) || 'Model yüklenemedi.';
       return;
     }
-    $('chartCard').hidden = false;
+    $('chartCard').hidden = view !== 'predict' || !matchShown;
     $('lockProgress').hidden = false;
 
     const { now, lock, lockRule, final } = pred;

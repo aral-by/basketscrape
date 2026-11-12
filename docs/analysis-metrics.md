@@ -175,6 +175,21 @@ All of these use minute resolution: the scraper knows the score at the end of ea
 
 Statistic names are matched with ordered keywords, most specific first, so "Toplam Ribaund" is never mistaken for "Hücum Ribaundu".
 
+### Players (official EuroLeague / EuroCup data)
+
+`src/euroleagueLive.js` matches a Flashscore match to the official game: same competition (EuroLeague `E`, EuroCup `U`), season starting in July, kick-off within 36 hours, and at least half of the words of **both** team names found in the official club names (home/away may be swapped). It then polls every 20 s:
+
+| Source | Used for |
+|---|---|
+| `live.euroleague.net/api/Boxscore` | Player and team box score: minutes, points, 2P/3P/FT, rebounds, assists, steals, turnovers, blocks, fouls committed/drawn, PIR, +/-, starter, on court |
+| `live.euroleague.net/api/PlayByPlay` | Team fouls per period and the latest plays |
+
+**Team fouls and bonus (FIBA).** Every player foul counts (`CM`, `OF`, `CMU`, `CMT`, `CMD`, …). From the 5th team foul of a period the opponent shoots free throws, so the panel shows **BONUS** once a team has 4 or more. Overtimes continue the 4th-quarter count.
+
+**Foul trouble.** Players with 4+ fouls, or 3+ in the first half. 5 fouls = fouled out.
+
+When the official box score is available, **Takım analizi** uses its totals instead of Flashscore's.
+
 ### Patterns, measured
 
 The old quarter rules are evaluated live and shown next to how often they held in 2873 games:

@@ -59,6 +59,11 @@
         </div>
         <div class="sb-team right"><div class="sb-name" id="sbAway">Deplasman</div><div class="sb-score mono" id="sbAwayScore">0</div></div>
       </div>
+      <div class="sb-fouls-row" id="sbFouls" hidden>
+        <span class="sb-fouls" id="sbHomeFouls"></span>
+        <span class="sb-fouls-k">Takım faulü (bu periyot)</span>
+        <span class="sb-fouls right" id="sbAwayFouls"></span>
+      </div>
       <div class="sb-quarters" id="sbQuarters"></div>
     </section>
 
@@ -67,6 +72,7 @@
     <nav class="card views" id="viewTabs" data-view="all" hidden>
       <button type="button" data-v="predict" class="on">Tahmin</button>
       <button type="button" data-v="summary">Maç özeti</button>
+      <button type="button" data-v="players">Oyuncular</button>
       <button type="button" data-v="flow">Akış</button>
       <button type="button" data-v="tables">Skor tabloları</button>
       <button type="button" data-v="team">Takım analizi</button>
@@ -178,6 +184,38 @@
     <section class="card wide" data-view="summary" hidden>
       <div class="card-title">Fark grafiği · ev sahibi önde (+) / deplasman önde (−)</div>
       <div class="chart-wrap short"><canvas id="cMarginSum"></canvas></div>
+    </section>
+
+    <!-- ── Oyuncular (resmi EuroLeague/EuroCup verisi) ─ -->
+    <section class="card wide" data-view="players" hidden id="playersEmpty">
+      <div class="empty" id="playersEmptyText">Oyuncu verisi bekleniyor…</div>
+    </section>
+    <section class="card half" data-view="players" hidden>
+      <div class="card-title">Takım faulleri · bonus</div>
+      <div id="teamFouls"></div>
+    </section>
+    <section class="card half" data-view="players" hidden>
+      <div class="card-title">Öne çıkanlar</div>
+      <div class="leaders" id="leaders"></div>
+    </section>
+    <section class="card wide" data-view="players" hidden>
+      <div class="tables-head">
+        <div class="card-title" id="boxTitleHome">Ev sahibi</div>
+        <div class="box-legend"><span class="dot-on"></span> sahada · <b>*</b> ilk beş · faul <span class="pf4">4</span> <span class="pf5">5</span></div>
+      </div>
+      <div class="tbl-wrap"><table class="tbl box" id="boxHome"></table></div>
+    </section>
+    <section class="card wide" data-view="players" hidden>
+      <div class="card-title" id="boxTitleAway">Deplasman</div>
+      <div class="tbl-wrap"><table class="tbl box" id="boxAway"></table></div>
+    </section>
+    <section class="card half" data-view="players" hidden>
+      <div class="card-title">Faul sıkıntısı</div>
+      <div id="foulTrouble"></div>
+    </section>
+    <section class="card half" data-view="players" hidden>
+      <div class="card-title">Son olaylar</div>
+      <div class="feed" id="feed"></div>
     </section>
 
     <!-- ── Akış ──────────────────────────────────────── -->

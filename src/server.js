@@ -5,6 +5,7 @@ const path = require('path');
 const { Server } = require('socket.io');
 const { isAllowedMatchUrl } = require('./parse');
 const { MatchManager } = require('./matchManager');
+const { EuroleagueLive } = require('./euroleagueLive');
 const { loadPredictor } = require('./liveForecast');
 const { shared: browserPool } = require('./browserPool');
 const { openApp } = require('./openApp');
@@ -34,6 +35,8 @@ const manager = new MatchManager({
   dataDir: RECORD_MATCHES ? DATA_DIR : null,
   sessionsFile: process.env.DEMO_GAME ? null : SESSIONS_FILE,
   maxMatches: MAX_MATCHES,
+  // EuroLeague/EuroCup: oyuncu istatistikleri, takım faulleri, son olaylar (OFFICIAL_DATA=0 ile kapatılır)
+  official: process.env.OFFICIAL_DATA === '0' ? null : new EuroleagueLive(),
 });
 
 app.use(express.json());
